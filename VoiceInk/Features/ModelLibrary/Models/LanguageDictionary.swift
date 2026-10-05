@@ -139,6 +139,11 @@ enum LanguageDictionary {
         includesAutoDetect: true
     )
 
+    static let voxtralMiniRealtime = forCodes(
+        ["en", "fr", "es", "de", "ru", "zh", "ja", "it", "pt", "nl", "ar", "hi", "ko"],
+        includesAutoDetect: true
+    )
+
     private static func languages(matching codes: Set<String>) -> [String: String] {
         all.filter { codes.contains($0.key) }
     }

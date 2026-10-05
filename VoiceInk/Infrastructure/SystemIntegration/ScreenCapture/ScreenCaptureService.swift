@@ -8,6 +8,14 @@ import Vision
 class ScreenCaptureService: ObservableObject {
     @Published var isCapturing = false
     @Published var lastCapturedText: String?
+    @Published var lastCapturedImageData: Data?
+
+    struct ScreenCaptureResult: Sendable {
+        let windowTitle: String
+        let applicationName: String
+        let textContent: String
+        let imageData: Data?
+    }
 
     private struct FocusedWindowHint: Sendable {
         let processID: pid_t
@@ -38,6 +46,10 @@ class ScreenCaptureService: ObservableObject {
     }
 
     func captureAndExtractText() async -> String? {
+        await captureContext()?.textContent
+    }
+
+    func captureContext() async -> ScreenCaptureResult? {
         guard !isCapturing else { return nil }
 
         isCapturing = true
@@ -49,10 +61,10 @@ class ScreenCaptureService: ObservableObject {
         let focusedWindowHint = makeFocusedWindowHint(excluding: currentPID)
 
         guard
-            let contextText = await Self.withTimeout(
+            let result = await Self.withTimeout(
                 seconds: Self.captureTimeout,
                 operation: {
-                    await Self.captureAndExtractWindowText(
+                    await Self.captureAndExtractWindowContent(
                         focusedWindowHint: focusedWindowHint,
                         currentPID: currentPID
                     )
@@ -61,8 +73,9 @@ class ScreenCaptureService: ObservableObject {
             return nil
         }
 
-        lastCapturedText = contextText
-        return contextText
+        lastCapturedText = result.textContent
+        lastCapturedImageData = result.imageData
+        return result
     }
 
     private func makeFocusedWindowHint(excluding currentPID: pid_t) -> FocusedWindowHint? {
@@ -95,10 +108,10 @@ class ScreenCaptureService: ObservableObject {
         )
     }
 
-    private nonisolated static func captureAndExtractWindowText(
+    private nonisolated static func captureAndExtractWindowContent(
         focusedWindowHint: FocusedWindowHint?,
         currentPID: pid_t
-    ) async -> String? {
+    ) async -> ScreenCaptureResult? {
         do {
             let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
 
@@ -125,6 +138,8 @@ class ScreenCaptureService: ObservableObject {
             let cgImage = try await SCScreenshotManager.captureImage(
                 contentFilter: filter, configuration: configuration)
 
+            let imageData = compressToJPEG(cgImage: cgImage)
+
             var contextText = """
                 Active Window: \(title)
                 Application: \(appName)
@@ -138,11 +153,53 @@ class ScreenCaptureService: ObservableObject {
                 contextText += "Window Content:\nNo text detected via OCR"
             }
 
-            return contextText
+            return ScreenCaptureResult(
+                windowTitle: title,
+                applicationName: appName,
+                textContent: contextText,
+                imageData: imageData
+            )
 
         } catch {
             return nil
         }
+    }
+
+    private nonisolated static func compressToJPEG(
+        cgImage: CGImage,
+        maxDimension: CGFloat = 1920,
+        compressionQuality: CGFloat = 0.75
+    ) -> Data? {
+        let width = CGFloat(cgImage.width)
+        let height = CGFloat(cgImage.height)
+        let longestSide = max(width, height)
+        guard longestSide > 0 else { return nil }
+
+        let scale = min(1, maxDimension / longestSide)
+        let targetWidth = max(1, Int(width * scale))
+        let targetHeight = max(1, Int(height * scale))
+
+        guard
+            let colorSpace = cgImage.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB),
+            let context = CGContext(
+                data: nil,
+                width: targetWidth,
+                height: targetHeight,
+                bitsPerComponent: 8,
+                bytesPerRow: 0,
+                space: colorSpace,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            )
+        else {
+            return nil
+        }
+
+        context.interpolationQuality = .medium
+        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: targetWidth, height: targetHeight))
+        guard let resizedImage = context.makeImage() else { return nil }
+
+        return NSBitmapImageRep(cgImage: resizedImage)
+            .representation(using: .jpeg, properties: [.compressionFactor: compressionQuality])
     }
 
     private nonisolated static func findActiveWindow(

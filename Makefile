@@ -6,7 +6,7 @@ LOCAL_DERIVED_DATA := $(CURDIR)/.local-build
 LOCAL_CODESIGN_IDENTITY ?=
 RUN_APP_NAME ?= VoiceInk
 
-.PHONY: all clean whisper setup build local check healthcheck help dev run release release-setup
+.PHONY: all clean whisper setup build local local-dev check healthcheck help dev run release release-setup
 
 # Default target
 all: check build
@@ -101,6 +101,11 @@ local: check setup
 		echo "Error: Could not find built VoiceInk.app at $$APP_PATH"; \
 		exit 1; \
 	fi
+
+# MAILSHIELD Developer ID Release for /Applications/VoiceInk Dev.app.
+# Do not use `local` or `dev` for that install.
+local-dev: check
+	@./scripts/local-dev-release.sh
 
 # Run application
 run:

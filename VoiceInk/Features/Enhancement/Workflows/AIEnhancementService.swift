@@ -244,6 +244,8 @@ class AIEnhancementService: ObservableObject {
                 messages: [.user(formattedText)],
                 systemPrompt: systemMessage,
                 localUserPrompt: formattedText,
+                screenImageData: contextSnapshot?.screenImageData,
+                screenImageMimeType: contextSnapshot?.screenImageMimeType,
                 timeout: requestTimeout
             )
             if let openRouterCompletion = completion.openRouterCompletion {

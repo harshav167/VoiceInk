@@ -1,4 +1,5 @@
 import Foundation
+import TranscribeCpp
 
 /// Routes catalog-backed models through the shared transcribe.cpp runtime.
 final class TranscribeCppTranscriptionService: TranscriptionService, @unchecked Sendable {
@@ -9,6 +10,14 @@ final class TranscribeCppTranscriptionService: TranscriptionService, @unchecked 
             throw unsupportedModelError(model.name)
         }
         try await offlineService.loadModel(for: model)
+    }
+
+    /// Loads or reuses the shared native model instance for streaming sessions.
+    func getOrLoadModel(for model: TranscribeCppModel) async throws -> Model {
+        guard let artifact = TranscribeCppModelCatalog.artifact(for: model.name) else {
+            throw unsupportedModelError(model.name)
+        }
+        return try await offlineService.getOrLoadModel(for: model, artifact: artifact)
     }
 
     func transcribe(

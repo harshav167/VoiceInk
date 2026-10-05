@@ -121,9 +121,27 @@ struct TranscribeCppModel: TranscriptionModel, Sendable {
     let accuracy: Double
     let ramUsage: Double
     let publisher: String
+    let supportsStreaming: Bool
     let supportedLanguages: [String: String]
 
     var isMultilingualModel: Bool { supportedLanguages.count > 1 }
+
+    init(
+        name: String, displayName: String, description: String, size: String, speed: Double,
+        accuracy: Double, ramUsage: Double, publisher: String, supportsStreaming: Bool = false,
+        supportedLanguages: [String: String]
+    ) {
+        self.name = name
+        self.displayName = displayName
+        self.description = description
+        self.size = size
+        self.speed = speed
+        self.accuracy = accuracy
+        self.ramUsage = ramUsage
+        self.publisher = publisher
+        self.supportsStreaming = supportsStreaming
+        self.supportedLanguages = supportedLanguages
+    }
 }
 
 // A new struct for cloud models

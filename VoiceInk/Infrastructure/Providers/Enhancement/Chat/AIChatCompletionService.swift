@@ -13,6 +13,8 @@ extension AIService {
         messages: [ChatMessage],
         systemPrompt: String? = nil,
         localUserPrompt: String? = nil,
+        screenImageData: Data? = nil,
+        screenImageMimeType: String? = nil,
         timeout: TimeInterval = 30
     ) async throws -> AIChatCompletionResult {
         let resolvedModel = modelName?.isEmpty == false ? modelName! : selectedModel(for: provider)
@@ -21,13 +23,13 @@ extension AIService {
         var openRouterCompletion: OpenRouterCompletion? = nil
         switch provider {
         case .gemini:
-            result = try await GeminiLLMClient.chatCompletion(
-                apiKey: try chatAPIKey(for: provider, modelName: resolvedModel),
-                model: resolvedModel,
+            result = try await performGeminiCompletion(
+                resolvedModel: resolvedModel,
                 messages: messages,
                 systemPrompt: systemPrompt,
-                thinkingLevel: ReasoningConfig.geminiThinkingLevel(for: resolvedModel),
-                store: false,
+                localUserPrompt: localUserPrompt,
+                screenImageData: screenImageData,
+                screenImageMimeType: screenImageMimeType,
                 timeout: timeout
             )
         case .anthropic:
@@ -39,28 +41,31 @@ extension AIService {
                 timeout: timeout
             )
         case .openRouter:
-            let policy = OpenRouterRequestPolicy.lowLatency(
-                modelName: resolvedModel,
-                modelMetadata: openRouterModelMetadata(for: resolvedModel)
-            )
-            let completion = try await OpenRouterClient.chatCompletion(
-                apiKey: try chatAPIKey(for: provider, modelName: resolvedModel),
-                model: policy.model,
-                messages: messages,
-                systemPrompt: systemPrompt,
-                temperature: policy.temperature,
-                reasoning: policy.reasoning,
-                provider: policy.provider,
-                includeRouterMetadata: true,
-                appReferer: URL(string: "https://tryvoiceink.com"),
-                appTitle: "VoiceInk",
-                timeout: timeout
-            )
-            guard !OpenRouterRequestPolicy.outputWasTruncated(finishReason: completion.finishReason) else {
-                throw EnhancementError.outputTruncated
+            if let screenImageData, let screenImageMimeType {
+                result = try await performOpenAIMultimodalCompletion(
+                    baseURL: "https://openrouter.ai/api/v1",
+                    apiKey: try chatAPIKey(for: provider, modelName: resolvedModel),
+                    modelName: resolvedModel,
+                    systemPrompt: systemPrompt,
+                    localUserPrompt: localUserPrompt,
+                    messages: messages,
+                    screenImageData: screenImageData,
+                    screenImageMimeType: screenImageMimeType,
+                    timeout: timeout
+                )
+            } else {
+                let completion = try await performOpenRouterCompletion(
+                    resolvedModel: resolvedModel,
+                    messages: messages,
+                    systemPrompt: systemPrompt,
+                    timeout: timeout
+                )
+                guard !OpenRouterRequestPolicy.outputWasTruncated(finishReason: completion.finishReason) else {
+                    throw EnhancementError.outputTruncated
+                }
+                result = completion.text
+                openRouterCompletion = completion
             }
-            result = completion.text
-            openRouterCompletion = completion
         case .custom:
             guard
                 let customConfiguration = CustomAIProviderManager.shared.requestConfiguration(forModel: resolvedModel),
@@ -68,15 +73,29 @@ extension AIService {
             else {
                 throw EnhancementError.notConfigured
             }
-            result = try await OpenAILLMClient.chatCompletion(
-                baseURL: baseURL,
-                apiKey: customConfiguration.apiKey,
-                model: customConfiguration.modelName,
-                messages: messages,
-                systemPrompt: systemPrompt,
-                temperature: 0.3,
-                timeout: timeout
-            )
+            if let screenImageData, let screenImageMimeType {
+                result = try await performOpenAIMultimodalCompletion(
+                    baseURL: customConfiguration.baseURL,
+                    apiKey: customConfiguration.apiKey,
+                    modelName: customConfiguration.modelName,
+                    systemPrompt: systemPrompt,
+                    localUserPrompt: localUserPrompt,
+                    messages: messages,
+                    screenImageData: screenImageData,
+                    screenImageMimeType: screenImageMimeType,
+                    timeout: timeout
+                )
+            } else {
+                result = try await OpenAILLMClient.chatCompletion(
+                    baseURL: baseURL,
+                    apiKey: customConfiguration.apiKey,
+                    model: customConfiguration.modelName,
+                    messages: messages,
+                    systemPrompt: systemPrompt,
+                    temperature: 0.3,
+                    timeout: timeout
+                )
+            }
         case .voiceInkRefine:
             throw EnhancementError.customError(
                 String(localized: "VoiceInk Refine only supports transcript cleanup.")
@@ -97,25 +116,40 @@ extension AIService {
             guard let baseURL = URL(string: provider.baseURL) else {
                 throw EnhancementError.notConfigured
             }
-            let reasoningEffort = ReasoningConfig.getReasoningParameter(
-                for: provider,
-                modelName: resolvedModel
-            )
-            let extraBody = ReasoningConfig.getExtraBodyParameters(
-                for: provider,
-                modelName: resolvedModel
-            )
-            result = try await OpenAILLMClient.chatCompletion(
-                baseURL: baseURL,
-                apiKey: try chatAPIKey(for: provider, modelName: resolvedModel),
-                model: resolvedModel,
-                messages: messages,
-                systemPrompt: systemPrompt,
-                temperature: 0.3,
-                reasoningEffort: reasoningEffort,
-                extraBody: extraBody,
-                timeout: timeout
-            )
+            let apiKey = try chatAPIKey(for: provider, modelName: resolvedModel)
+            if let screenImageData, let screenImageMimeType {
+                result = try await performOpenAIMultimodalCompletion(
+                    baseURL: baseURL.absoluteString,
+                    apiKey: apiKey,
+                    modelName: resolvedModel,
+                    systemPrompt: systemPrompt,
+                    localUserPrompt: localUserPrompt,
+                    messages: messages,
+                    screenImageData: screenImageData,
+                    screenImageMimeType: screenImageMimeType,
+                    timeout: timeout
+                )
+            } else {
+                let reasoningEffort = ReasoningConfig.getReasoningParameter(
+                    for: provider,
+                    modelName: resolvedModel
+                )
+                let extraBody = ReasoningConfig.getExtraBodyParameters(
+                    for: provider,
+                    modelName: resolvedModel
+                )
+                result = try await OpenAILLMClient.chatCompletion(
+                    baseURL: baseURL,
+                    apiKey: apiKey,
+                    model: resolvedModel,
+                    messages: messages,
+                    systemPrompt: systemPrompt,
+                    temperature: 0.3,
+                    reasoningEffort: reasoningEffort,
+                    extraBody: extraBody,
+                    timeout: timeout
+                )
+            }
         }
 
         return AIChatCompletionResult(text: result, openRouterCompletion: openRouterCompletion)
@@ -141,6 +175,92 @@ extension AIService {
             throw EnhancementError.enhancementFailed
         }
         return filteredResult
+    }
+
+    private func performOpenAIMultimodalCompletion(
+        baseURL: String,
+        apiKey: String,
+        modelName: String,
+        systemPrompt: String?,
+        localUserPrompt: String?,
+        messages: [ChatMessage],
+        screenImageData: Data,
+        screenImageMimeType: String,
+        timeout: TimeInterval
+    ) async throws -> String {
+        try await OpenAIMultimodalClient.chatCompletion(
+            baseURL: baseURL,
+            apiKey: apiKey,
+            model: modelName,
+            userPrompt: localUserPrompt ?? chatPrompt(from: messages),
+            systemPrompt: systemPrompt,
+            screenImageData: screenImageData,
+            screenImageMimeType: screenImageMimeType,
+            temperature: 0.3,
+            timeout: timeout
+        )
+    }
+
+    private func performGeminiCompletion(
+        resolvedModel: String,
+        messages: [ChatMessage],
+        systemPrompt: String?,
+        localUserPrompt: String?,
+        screenImageData: Data?,
+        screenImageMimeType: String?,
+        timeout: TimeInterval
+    ) async throws -> String {
+        let apiKey = try chatAPIKey(for: .gemini, modelName: resolvedModel)
+
+        // Route multimodal requests through the native Gemini generateContent API
+        // so the raw screenshot reaches the model instead of lossy OCR output.
+        if let screenImageData, let screenImageMimeType {
+            return try await GeminiMultimodalClient.chatCompletion(
+                apiKey: apiKey,
+                model: resolvedModel,
+                userPrompt: localUserPrompt ?? chatPrompt(from: messages),
+                systemPrompt: systemPrompt,
+                screenImageData: screenImageData,
+                screenImageMimeType: screenImageMimeType,
+                thinkingLevel: ReasoningConfig.geminiThinkingLevel(for: resolvedModel)?.rawValue,
+                timeout: timeout
+            )
+        }
+
+        return try await GeminiLLMClient.chatCompletion(
+            apiKey: apiKey,
+            model: resolvedModel,
+            messages: messages,
+            systemPrompt: systemPrompt,
+            thinkingLevel: ReasoningConfig.geminiThinkingLevel(for: resolvedModel),
+            store: false,
+            timeout: timeout
+        )
+    }
+
+    private func performOpenRouterCompletion(
+        resolvedModel: String,
+        messages: [ChatMessage],
+        systemPrompt: String?,
+        timeout: TimeInterval
+    ) async throws -> OpenRouterCompletion {
+        let policy = OpenRouterRequestPolicy.lowLatency(
+            modelName: resolvedModel,
+            modelMetadata: openRouterModelMetadata(for: resolvedModel)
+        )
+        return try await OpenRouterClient.chatCompletion(
+            apiKey: try chatAPIKey(for: .openRouter, modelName: resolvedModel),
+            model: policy.model,
+            messages: messages,
+            systemPrompt: systemPrompt,
+            temperature: policy.temperature,
+            reasoning: policy.reasoning,
+            provider: policy.provider,
+            includeRouterMetadata: true,
+            appReferer: URL(string: "https://tryvoiceink.com"),
+            appTitle: "VoiceInk",
+            timeout: timeout
+        )
     }
 
     private func chatAPIKey(for provider: AIProvider, modelName: String) throws -> String {

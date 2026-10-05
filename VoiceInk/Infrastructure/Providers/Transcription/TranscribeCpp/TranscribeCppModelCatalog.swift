@@ -94,9 +94,40 @@ enum TranscribeCppModelCatalog {
         boundaryEnergyWindowSamples: 1_600
     )
 
+    // Rollback backup (Q5_K_M):
+    static let voxtralMiniRealtimeQ5 = TranscribeCppModelArtifact(
+        modelName: "voxtral-mini-realtime",
+        fileName: "Voxtral-Mini-4B-Realtime-2602-Q5_K_M.gguf",
+        repository: "handy-computer/Voxtral-Mini-4B-Realtime-2602-gguf",
+        repositoryRevision: "65d1c9408859a0ca0f1c11b025ee951486af21d6",
+        expectedFileSize: 3_281_439_008,
+        expectedSHA256: "e20a7582c5cf8159454c909b7f57b184b287cb3d7c3ec85744727a2cec51b08f",
+        architectureHint: "voxtral_realtime",
+        enablesInverseTextNormalization: false,
+        maximumChunkSeconds: 3600,
+        boundarySearchSeconds: 30,
+        boundaryEnergyWindowSamples: 1_600
+    )
+
+    // Active model (Q6_K):
+    static let voxtralMiniRealtime = TranscribeCppModelArtifact(
+        modelName: "voxtral-mini-realtime",
+        fileName: "Voxtral-Mini-4B-Realtime-2602-Q6_K.gguf",
+        repository: "handy-computer/Voxtral-Mini-4B-Realtime-2602-gguf",
+        repositoryRevision: "b3e1c979e3775cbd0a49a65878a0ec7f06789ed7",
+        expectedFileSize: 3_661_018_912,
+        expectedSHA256: "92038784cffa20ea8ee925f10fd28c110285124d94730eacce48bab6c214fa48",
+        architectureHint: "voxtral_realtime",
+        enablesInverseTextNormalization: false,
+        maximumChunkSeconds: 3600,
+        boundarySearchSeconds: 30,
+        boundaryEnergyWindowSamples: 1_600
+    )
+
     private static let artifactsByModelName = [
         cohereTranscribe.modelName: cohereTranscribe,
         senseVoiceSmall.modelName: senseVoiceSmall,
+        voxtralMiniRealtime.modelName: voxtralMiniRealtime,
     ]
 
     static func artifact(for modelName: String) -> TranscribeCppModelArtifact? {

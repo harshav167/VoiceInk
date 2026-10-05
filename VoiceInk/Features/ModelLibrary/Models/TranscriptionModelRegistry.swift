@@ -96,6 +96,18 @@ enum TranscriptionModelRegistry {
                 publisher: "FunAudioLLM / Alibaba",
                 supportedLanguages: LanguageDictionary.senseVoiceSmall
             ),
+            TranscribeCppModel(
+                name: "voxtral-mini-realtime",
+                displayName: "Voxtral Mini Realtime",
+                description: "Live multilingual on-device Voxtral model running privately with Metal acceleration",
+                size: "3.66 GB",
+                speed: 0.99,
+                accuracy: 0.98,
+                ramUsage: 3.7,
+                publisher: "Mistral AI",
+                supportsStreaming: true,
+                supportedLanguages: LanguageDictionary.voxtralMiniRealtime
+            ),
 
             // Local Models
             WhisperModel(

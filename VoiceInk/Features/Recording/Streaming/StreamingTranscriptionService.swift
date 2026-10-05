@@ -125,6 +125,7 @@ class StreamingTranscriptionService {
     private var committedSegments: [String] = []
     private let modelContext: ModelContext
     private let fluidAudioService: FluidAudioTranscriptionService?
+    private let transcribeCppService: TranscribeCppTranscriptionService?
     private var onPartialTranscript: ((String) -> Void)?
     private let metrics = StreamingMetrics()
     private var stopStartedAt: Date?
@@ -133,10 +134,12 @@ class StreamingTranscriptionService {
 
     init(
         modelContext: ModelContext, fluidAudioService: FluidAudioTranscriptionService? = nil,
+        transcribeCppService: TranscribeCppTranscriptionService? = nil,
         onPartialTranscript: ((String) -> Void)? = nil
     ) {
         self.modelContext = modelContext
         self.fluidAudioService = fluidAudioService
+        self.transcribeCppService = transcribeCppService
         self.onPartialTranscript = onPartialTranscript
     }
 
@@ -313,6 +316,14 @@ class StreamingTranscriptionService {
                 )
             }
             return FluidAudioStreamingProvider(fluidAudioService: fluidAudioService)
+        }
+        if model.provider == .transcribeCpp {
+            guard let transcribeCppService else {
+                fatalError(
+                    "TranscribeCppTranscriptionService required for TranscribeCpp streaming. Ensure it is passed to StreamingTranscriptionService."
+                )
+            }
+            return TranscribeCppStreamingProvider(transcribeCppService: transcribeCppService)
         }
         guard let cloudProvider = CloudProviderRegistry.provider(for: model.provider),
             let streamingProvider = cloudProvider.makeStreamingProvider(modelContext: modelContext)

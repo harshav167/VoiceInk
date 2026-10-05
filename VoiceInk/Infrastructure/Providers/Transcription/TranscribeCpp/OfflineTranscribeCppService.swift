@@ -152,7 +152,9 @@ final class OfflineTranscribeCppService: TranscriptionService, @unchecked Sendab
         unloadModel { _ in true }
     }
 
-    private func getOrLoadModel(
+    /// Loads or reuses the shared native model instance so streaming and offline
+    /// sessions share a single Metal allocation and compute lease.
+    func getOrLoadModel(
         for model: TranscribeCppModel,
         artifact: TranscribeCppModelArtifact
     ) async throws -> Model {

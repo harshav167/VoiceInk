@@ -69,6 +69,8 @@ class TranscriptionServiceRegistry {
             let streamingService = StreamingTranscriptionService(
                 modelContext: modelContext,
                 fluidAudioService: model.provider == .fluidAudio ? fluidAudioTranscriptionService : nil,
+                transcribeCppService:
+                    model.provider == .transcribeCpp ? transcribeCppTranscriptionService : nil,
                 onPartialTranscript: onPartialTranscript
             )
             let fallback = service(for: model.provider)
