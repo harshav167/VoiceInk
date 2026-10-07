@@ -1,4 +1,5 @@
 import AppKit
+import CoreML
 import FluidAudio
 import Foundation
 import os
@@ -33,12 +34,14 @@ class FluidAudioModelManager: ObservableObject {
         "parakeet-tdt-0.6b-v2": .v2,
         "parakeet-tdt-0.6b-v3": .v3,
         "parakeet-ultra": .ultra,
+        "phonon-2": .phonon2,
     ]
 
     private enum FluidAudioModelKind {
         case parakeet(AsrModelVersion)
         case parakeetUnified
         case nemotron(NemotronVariant)
+        case cohere
     }
 
     nonisolated static func asrVersion(for modelName: String) -> AsrModelVersion {
@@ -103,6 +106,15 @@ class FluidAudioModelManager: ObservableObject {
         isNemotronModel(named: modelName)
     }
 
+    nonisolated static func isCohereModel(named modelName: String) -> Bool {
+        modelName == "cohere-transcribe-coreml"
+    }
+
+    nonisolated static func cohereCacheDirectory() -> URL {
+        fluidAudioModelsRootDirectory()
+            .appendingPathComponent(Repo.cohereTranscribeCoreml.folderName, isDirectory: true)
+    }
+
     nonisolated private static func modelKind(for modelName: String) -> FluidAudioModelKind {
         if let nemotronVariant = NemotronVariant(modelName: modelName) {
             return .nemotron(nemotronVariant)
@@ -110,6 +122,10 @@ class FluidAudioModelManager: ObservableObject {
 
         if isParakeetUnifiedModel(named: modelName) {
             return .parakeetUnified
+        }
+
+        if isCohereModel(named: modelName) {
+            return .cohere
         }
 
         return .parakeet(asrVersion(for: modelName))
@@ -161,8 +177,18 @@ class FluidAudioModelManager: ObservableObject {
             return Self.parakeetUnifiedRequiredFiles.allSatisfy {
                 FileManager.default.fileExists(atPath: directory.appendingPathComponent($0).path)
             }
+        case .cohere:
+            let directory = Self.cohereCacheDirectory()
+            return ModelNames.CohereTranscribe.requiredModels.allSatisfy {
+                FileManager.default.fileExists(atPath: directory.appendingPathComponent($0).path)
+            }
         case .parakeet(let version):
-            return AsrModels.modelsExist(at: cacheDirectory(for: version), version: version)
+            let directory = cacheDirectory(for: version)
+            let denseEncoderExists =
+                version != .phonon2
+                || FileManager.default.fileExists(
+                    atPath: directory.appendingPathComponent(Self.phonon2DenseEncoderFile).path)
+            return AsrModels.modelsExist(at: directory, version: version) && denseEncoderExists
                 && Self.vadModelFilesExist()
         }
     }
@@ -249,6 +275,22 @@ class FluidAudioModelManager: ObservableObject {
                 try Task.checkCancellation()
                 try await Self.optimizeParakeetUnifiedBatchModel()
                 try Task.checkCancellation()
+            case .cohere:
+                try await ModelHub.download(
+                    .cohereTranscribeCoreml,
+                    to: Self.fluidAudioModelsRootDirectory(),
+                    progressHandler: Self.downloadOnlyProgressHandler(forwarding: progressHandler)
+                )
+                try Task.checkCancellation()
+                preserveModelFiles = true
+                beginModelPreparation(for: modelName, downloadID: downloadID)
+                let models = try await Self.loadCohereModels(
+                    pipeline: FluidAudioComputePipelineSetting.current.pipeline(isCohere: true))
+                // Core ML specializes Cohere on its first prediction (~80 s on an M4 Max), so run one now instead of
+                // in the first dictation. It is not kept across launches; VoiceInk's launch/wake prewarm repeats it.
+                _ = try await CoherePipeline().transcribe(
+                    audio: [Float](repeating: 0, count: CohereAsrConfig.sampleRate), models: models)
+                try Task.checkCancellation()
             case .nemotron(let variant):
                 let modelDirectory = try await StreamingNemotronMultilingualAsrManager.downloadVariant(
                     languageCode: variant.downloadLanguageCode,
@@ -277,7 +319,9 @@ class FluidAudioModelManager: ObservableObject {
                     repo,
                     to: cacheDirectory.deletingLastPathComponent(),
                     variant: version == .v3 ? ParakeetEncoderPrecision.int8.rawValue : nil,
-                    additionalModelNames: [ModelNames.ASR.vocabularyFile],
+                    additionalModelNames: version == .phonon2
+                        ? [ModelNames.ASR.vocabularyFile, Self.phonon2DenseEncoderFile]
+                        : [ModelNames.ASR.vocabularyFile],
                     progressHandler: Self.downloadOnlyProgressHandler(forwarding: progressHandler)
                 )
                 preserveModelFiles = true
@@ -288,11 +332,8 @@ class FluidAudioModelManager: ObservableObject {
                 )
                 try Task.checkCancellation()
                 beginModelPreparation(for: modelName, downloadID: downloadID)
-                _ = try await AsrModels.load(
-                    from: cacheDirectory,
-                    version: version,
-                    encoderPrecision: .int8
-                )
+                _ = try await Self.loadParakeetModels(
+                    version: version, pipeline: FluidAudioComputePipelineSetting.current.pipeline(isCohere: false))
                 try Task.checkCancellation()
                 _ = try await VadManager()
                 try Task.checkCancellation()
@@ -344,6 +385,8 @@ class FluidAudioModelManager: ObservableObject {
             return .parakeetV3
         case .ultra:
             return .parakeetUltra
+        case .phonon2:
+            return .phonon2
         default:
             return nil
         }
@@ -389,6 +432,8 @@ class FluidAudioModelManager: ObservableObject {
             return Self.nemotronCacheDirectory(for: variant)
         case .parakeetUnified:
             return Self.parakeetUnifiedCacheDirectory()
+        case .cohere:
+            return Self.cohereCacheDirectory()
         case .parakeet(let version):
             return cacheDirectory(for: version)
         }
@@ -546,4 +591,74 @@ class FluidAudioModelManager: ObservableObject {
     private static func displayName(forModelComponent modelName: String) -> String {
         modelName.replacingOccurrences(of: ".mlmodelc", with: "")
     }
+}
+
+// MARK: - Model loading
+
+extension FluidAudioModelManager {
+    nonisolated static func loadCohereModels(pipeline: FluidAudioComputePipeline) async throws
+        -> CoherePipeline.LoadedModels
+    {
+        let directory = cohereCacheDirectory()
+        return try await CoherePipeline.loadModels(
+            encoderDir: directory, decoderDir: directory, vocabDir: directory, computeUnits: pipeline.computeUnits)
+    }
+
+    /// Phonon-2's default encoder is sparse. Core ML's GPU path re-expands sparse weights on every load (minutes,
+    /// never cached), so GPU pipelines run its dense 6-bit build instead.
+    nonisolated static let phonon2DenseEncoderFile = "Encoder_lut6.mlmodelc"
+
+    /// Loads a Parakeet-family model for `pipeline`. The preprocessor stays on the CPU (FluidAudio pins it);
+    /// the encoder, decoder and joint run on the pipeline's compute units.
+    nonisolated static func loadParakeetModels(
+        version: AsrModelVersion, pipeline: FluidAudioComputePipeline
+    ) async throws -> AsrModels {
+        let cacheDirectory = AsrModels.defaultCacheDirectory(for: version)
+        guard AsrModels.modelsExist(at: cacheDirectory, version: version) else {
+            throw AsrModelsError.loadingFailed(
+                "Parakeet model files are incomplete. Download the model from AI Models."
+            )
+        }
+        guard pipeline.usesGPU else {
+            return try await AsrModels.load(from: cacheDirectory, version: version, encoderPrecision: .int8)
+        }
+
+        let configuration = MLModelConfiguration()
+        configuration.computeUnits = pipeline.computeUnits
+        guard version == .phonon2 else {
+            return try await AsrModels.load(
+                from: cacheDirectory,
+                configuration: configuration,
+                version: version,
+                encoderPrecision: .int8,
+                encoderComputeUnits: pipeline.computeUnits
+            )
+        }
+
+        let denseEncoderURL = cacheDirectory.appendingPathComponent(phonon2DenseEncoderFile)
+        guard FileManager.default.fileExists(atPath: denseEncoderURL.path) else {
+            throw AsrModelsError.loadingFailed(
+                "Phonon-2's GPU encoder is not downloaded. Download Phonon-2 again from AI Models."
+            )
+        }
+        // FluidAudio always loads the default (sparse) encoder; keep it on the Neural Engine, where its compiled form
+        // is cached, take the decoder, joint and vocabulary, and run the dense encoder on the selected units.
+        let shared = try await AsrModels.load(
+            from: cacheDirectory,
+            configuration: configuration,
+            version: version,
+            encoderComputeUnits: .cpuAndNeuralEngine
+        )
+        let denseEncoder = try await MLModel.load(contentsOf: denseEncoderURL, configuration: configuration)
+        return AsrModels(
+            encoder: denseEncoder,
+            preprocessor: shared.preprocessor,
+            decoder: shared.decoder,
+            joint: shared.joint,
+            configuration: shared.configuration,
+            vocabulary: shared.vocabulary,
+            version: version
+        )
+    }
+
 }

@@ -68,6 +68,28 @@ enum TranscriptionModelRegistry {
                 supportedLanguages: LanguageDictionary.forProvider(isMultilingual: true, provider: .fluidAudio)
             ),
             FluidAudioModel(
+                name: "phonon-2",
+                displayName: "Phonon-2",
+                description:
+                    "Fermion Research's English retraining of Parakeet V3, the fastest Parakeet on the Neural Engine (CC-BY-4.0)",
+                size: "828 MB",
+                speed: 0.99,
+                accuracy: 0.93,
+                ramUsage: 0.7,
+                supportsStreaming: true,
+                supportedLanguages: LanguageDictionary.forProvider(isMultilingual: false, provider: .fluidAudio)
+            ),
+            FluidAudioModel(
+                name: "cohere-transcribe-coreml",
+                displayName: "Cohere Transcribe (Core ML)",
+                description: "Cohere Transcribe in Core ML: 14 languages, on the GPU and Neural Engine",
+                size: "2.19 GB",
+                speed: 0.6,
+                accuracy: 0.95,
+                ramUsage: 2.5,
+                supportedLanguages: LanguageDictionary.cohereTranscribe
+            ),
+            FluidAudioModel(
                 name: "parakeet-unified-0.6b",
                 displayName: "Parakeet Unified",
                 description: "English-only Parakeet model with native realtime transcription support",

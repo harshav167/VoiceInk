@@ -258,6 +258,8 @@ private struct AdvancedModelSettingsSection: View {
     @AppStorage("IsVADEnabled") private var isVADEnabled = true
     @AppStorage("AppendTrailingSpace") private var appendTrailingSpace = true
     @AppStorage("PrewarmModelOnWake") private var prewarmModelOnWake = true
+    @AppStorage(FluidAudioComputePipelineSetting.userDefaultsKey) private var computePipeline =
+        FluidAudioComputePipelineSetting.defaultValue
     @AppStorage(CloudTranscriptionSettings.timeoutKey) private var cloudTimeout =
         CloudTranscriptionSettings.defaultTimeout
 
@@ -278,6 +280,20 @@ private struct AdvancedModelSettingsSection: View {
                 }
             }
             .toggleStyle(.switch)
+
+            Picker(selection: $computePipeline) {
+                ForEach(FluidAudioComputePipelineSetting.allCases) { pipeline in
+                    Text(pipeline.title).tag(pipeline)
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Text("Local Model Pipeline")
+                    InfoTip(
+                        "Where Parakeet, Phonon-2 and Cohere Transcribe run. Automatic uses the CPU and Neural Engine for Parakeet and Phonon-2, and adds the GPU for Cohere Transcribe, which is about 3x faster there. Takes effect on the next transcription; the first run after switching prepares the model for the new hardware."
+                    )
+                }
+            }
+            .pickerStyle(.menu)
 
             Toggle(isOn: $prewarmModelOnWake) {
                 HStack(spacing: 4) {

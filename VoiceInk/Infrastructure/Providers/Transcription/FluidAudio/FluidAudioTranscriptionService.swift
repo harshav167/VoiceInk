@@ -8,9 +8,16 @@ class FluidAudioTranscriptionService: TranscriptionService {
     private var nemotronAsrManager: StreamingNemotronMultilingualAsrManager?
     private var vadManager: VadManager?
     private var activeVersion: AsrModelVersion?
+    private var activePipeline: FluidAudioComputePipeline?
     private var activeNemotronModelName: String?
-    private var cachedModels: AsrModels?
-    private var loadingTask: (version: AsrModelVersion, task: Task<AsrModels, Error>)?
+    private var cachedModels: (pipeline: FluidAudioComputePipeline, models: AsrModels)?
+    private var cohereModels: (pipeline: FluidAudioComputePipeline, models: CoherePipeline.LoadedModels)?
+    private let coherePipeline = CoherePipeline()
+    private struct ParakeetLoadKey: Equatable {
+        let version: AsrModelVersion
+        let pipeline: FluidAudioComputePipeline
+    }
+    private var loadingTask: (key: ParakeetLoadKey, task: Task<AsrModels, Error>)?
     private let audioConverter = AudioConverter()
     private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "FluidAudioTranscriptionService")
 
@@ -25,6 +32,7 @@ class FluidAudioTranscriptionService: TranscriptionService {
         return FluidAudioModelManager.languageHint(from: selectedLanguage, for: model.name)
     }
 
+    // Releases managers after each transcription; cached models (Parakeet and Cohere) stay loaded for reuse.
     private func cleanupLoadedManagers() async {
         await unifiedAsrManager?.cleanup()
         await nemotronAsrManager?.cleanup()
@@ -35,11 +43,13 @@ class FluidAudioTranscriptionService: TranscriptionService {
         asrManager = nil
         vadManager = nil
         activeVersion = nil
+        activePipeline = nil
         activeNemotronModelName = nil
     }
 
     private func ensureModelsLoaded(for version: AsrModelVersion) async throws {
-        if asrManager != nil, activeVersion == version {
+        let pipeline = FluidAudioComputePipelineSetting.current.pipeline(isCohere: false)
+        if asrManager != nil, activeVersion == version, activePipeline == pipeline {
             return
         }
 
@@ -52,6 +62,7 @@ class FluidAudioTranscriptionService: TranscriptionService {
         try await manager.loadModels(models)
         self.asrManager = manager
         self.activeVersion = version
+        self.activePipeline = pipeline
     }
 
     private func ensureUnifiedModelsLoaded() async throws {
@@ -79,53 +90,43 @@ class FluidAudioTranscriptionService: TranscriptionService {
         self.activeNemotronModelName = modelName
     }
 
-    // Returns cached models or loads from disk; deduplicates concurrent loads
+    // Returns cached models or loads from disk for the selected compute pipeline; deduplicates concurrent loads
     func getOrLoadModels(for version: AsrModelVersion) async throws -> AsrModels {
-        if let cached = cachedModels, cached.version == version {
-            return cached
+        let pipeline = FluidAudioComputePipelineSetting.current.pipeline(isCohere: false)
+        if let cached = cachedModels, cached.models.version == version, cached.pipeline == pipeline {
+            return cached.models
         }
 
-        // Deduplicate concurrent loads for the same version
-        if let (existingVersion, existingTask) = loadingTask, existingVersion == version {
-            return try await existingTask.value
+        // Deduplicate concurrent loads for the same version and pipeline
+        let key = ParakeetLoadKey(version: version, pipeline: pipeline)
+        if let loadingTask, loadingTask.key == key {
+            return try await loadingTask.task.value
         }
 
         let task = Task {
-            let cacheDirectory = AsrModels.defaultCacheDirectory(for: version)
-            guard AsrModels.modelsExist(at: cacheDirectory, version: version) else {
-                throw AsrModelsError.loadingFailed(
-                    "Parakeet model files are incomplete. Download the model from AI Models."
-                )
-            }
-            return try await AsrModels.load(
-                from: cacheDirectory,
-                configuration: nil,
-                version: version,
-                encoderPrecision: .int8
-            )
+            try await FluidAudioModelManager.loadParakeetModels(version: version, pipeline: pipeline)
         }
-        loadingTask = (version, task)
+        loadingTask = (key, task)
+        defer {
+            // Only clear if we're still the current loading task
+            if loadingTask?.key == key {
+                loadingTask = nil
+            }
+        }
 
-        do {
-            let models = try await task.value
-            self.cachedModels = models
-            // Only clear if we're still the current loading task
-            if loadingTask?.version == version {
-                self.loadingTask = nil
-            }
-            return models
-        } catch {
-            // Only clear if we're still the current loading task
-            if loadingTask?.version == version {
-                self.loadingTask = nil
-            }
-            throw error
-        }
+        let models = try await task.value
+        cachedModels = (pipeline, models)
+        return models
     }
 
     func loadModel(for model: FluidAudioModel) async throws {
         if FluidAudioModelManager.isNemotronModel(named: model.name) {
             // Realtime Nemotron uses a dedicated streaming manager; batch loads lazily in transcribe().
+            return
+        }
+
+        if FluidAudioModelManager.isCohereModel(named: model.name) {
+            _ = try await loadedCohereModels()
             return
         }
 
@@ -140,6 +141,10 @@ class FluidAudioTranscriptionService: TranscriptionService {
     func transcribe(audioURL: URL, model: any TranscriptionModel, context: TranscriptionRequestContext) async throws
         -> String
     {
+        if FluidAudioModelManager.isCohereModel(named: model.name) {
+            return try await transcribeWithCohere(audioURL: audioURL, model: model, context: context)
+        }
+
         if FluidAudioModelManager.isParakeetUnifiedModel(named: model.name) {
             try await ensureUnifiedModelsLoaded()
             guard let unifiedAsrManager else {
@@ -286,4 +291,34 @@ class FluidAudioTranscriptionService: TranscriptionService {
         await cleanupLoadedManagers()
     }
 
+}
+
+// MARK: - Cohere Transcribe (encoder-decoder, 14 languages, batch only)
+
+extension FluidAudioTranscriptionService {
+    private func loadedCohereModels() async throws -> CoherePipeline.LoadedModels {
+        let pipeline = FluidAudioComputePipelineSetting.current.pipeline(isCohere: true)
+        if let cohereModels, cohereModels.pipeline == pipeline {
+            return cohereModels.models
+        }
+
+        await cleanupLoadedManagers()
+
+        let models = try await FluidAudioModelManager.loadCohereModels(pipeline: pipeline)
+        cohereModels = (pipeline, models)
+        return models
+    }
+
+    private func transcribeWithCohere(
+        audioURL: URL, model: any TranscriptionModel, context: TranscriptionRequestContext
+    ) async throws -> String {
+        let models = try await loadedCohereModels()
+        let speechAudio = try await preparedSpeechAudio(from: audioURL)
+        guard !speechAudio.isEmpty else { return "" }
+
+        // Cohere has no auto-detect; the model's language list matches CohereAsrConfig.Language codes.
+        let languageCode = TranscriptionLanguageSupport.validLanguageOrFallback(context.language, for: model)
+        let language = CohereAsrConfig.Language(rawValue: languageCode) ?? .english
+        return try await coherePipeline.transcribeLong(audio: speechAudio, models: models, language: language).text
+    }
 }

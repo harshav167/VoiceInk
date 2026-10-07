@@ -41,7 +41,10 @@ private struct ModelProviderIdentity {
             namesMatch(model.displayName, trimmedName) || namesMatch(model.name, trimmedName)
         }) {
             if let transcribeCppModel = model as? TranscribeCppModel {
-                return transcribeCppIdentity(publisher: transcribeCppModel.publisher)
+                return publisherIdentity(transcribeCppModel.publisher)
+            }
+            if FluidAudioModelManager.isCohereModel(named: model.name) {
+                return publisherIdentity("Cohere")
             }
             return identity(for: model.provider)
         }
@@ -53,7 +56,7 @@ private struct ModelProviderIdentity {
         }
 
         if trimmedName.localizedCaseInsensitiveContains("cohere") {
-            return transcribeCppIdentity(publisher: "Cohere")
+            return publisherIdentity("Cohere")
         }
 
         if trimmedName.localizedCaseInsensitiveContains("apple") {
@@ -149,7 +152,7 @@ private struct ModelProviderIdentity {
         )
     }
 
-    private static func transcribeCppIdentity(publisher: String) -> ModelProviderIdentity {
+    private static func publisherIdentity(_ publisher: String) -> ModelProviderIdentity {
         ModelProviderIdentity(
             providerName: publisher,
             descriptor: descriptor(displayName: publisher, providerKey: publisher),
