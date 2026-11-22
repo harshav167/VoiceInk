@@ -1,3 +1,16 @@
+> **Custom fork of [Beingpax/VoiceInk](https://github.com/Beingpax/VoiceInk)** (`harshav167/VoiceInk`, `main` branch).
+
+## What this fork adds
+
+- **Native LFM3-Omni-2B (MLX Swift):** In-process any-to-any audio, vision, and text transcription (`LiquidAI/LFM3-Omni-2B-MLX-8bit`) via `mlx-swift-lm` with zero IPC or separate LLM step. Captures the focused window screenshot, clipboard, selected text, and cleanup prompt at recording start, streams live partials, supports cached-prefix full-audio review, and runs local cleanup on live dictation, History retries, and audio imports without calling an external AI provider.
+- **Native Core ML Phonon-2:** Direct integration with Fermion Research's `phonon-coreml` SDK (Neural Engine encoder, CPU TDT decoder, self-clocked live streaming with progressive 28 s / 36 s commits, windowed batch transcription, and one-time Core ML preparation).
+- **Cohere Transcribe (Core ML) & Local Model Pipeline:** On-device Cohere Transcribe via FluidAudio plus a hardware compute-pipeline selector for local models.
+- **Voxtral Mini Realtime & Multimodal Screen Context:** Real-time Voxtral streaming transcription and ScreenCaptureKit focused-window image capture paired with clipboard and selected-text context.
+- **Flexible Auto Send triggers:** Configurable `Send On` trigger (Return while recording, recording shortcut / stop button, or both) with backup/restore support and `de` / `fr` / `zh-Hans` localizations.
+- **Local Dev Release workflow:** `make local-dev` (`scripts/local-dev-release.sh`, [`docs/LOCAL_DEPLOYMENT_GUIDE.md`](docs/LOCAL_DEPLOYMENT_GUIDE.md)) for signed arm64 Release builds with `LOCAL_BUILD`.
+
+---
+
 <div align="center">
   <img src="VoiceInk/Assets.xcassets/AppIcon.appiconset/256-mac.png" width="180" height="180" />
   <h1>VoiceInk</h1>
