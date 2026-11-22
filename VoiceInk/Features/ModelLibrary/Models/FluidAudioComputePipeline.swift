@@ -22,7 +22,7 @@ enum FluidAudioComputePipeline: Equatable {
     var usesGPU: Bool { self != .cpuAndNeuralEngine }
 }
 
-/// The user's pipeline choice for Parakeet-family models (including Phonon-2) and Cohere Transcribe.
+/// The user's pipeline choice for Parakeet-family models and Cohere Transcribe.
 /// Nemotron and Parakeet Unified load through their own FluidAudio managers and are not affected.
 enum FluidAudioComputePipelineSetting: String, CaseIterable, Identifiable {
     case automatic

@@ -56,14 +56,20 @@ final class FluidAudioStreamingProvider: StreamingTranscriptionProvider {
     }
 
     func connect(model: any TranscriptionModel, language: String?) async throws {
+        let start = Date()
         let version: AsrModelVersion = FluidAudioModelManager.asrVersion(for: model.name)
         let models = try await fluidAudioService.getOrLoadModels(for: version)
+        let modelsReady = Date().timeIntervalSince(start)
 
         let manager = AsrManager(config: .default)
         try await manager.loadModels(models)
         self.asrManager = manager
         self.decoderLayerCount = await manager.decoderLayerCount
         self.languageHint = FluidAudioTranscriptionService.languageHint(from: language, model: model)
+        let managerReady = Date().timeIntervalSince(start) - modelsReady
+        logger.notice(
+            "FluidAudio streaming models ready=\(modelsReady, format: .fixed(precision: 3), privacy: .public)s manager=\(managerReady, format: .fixed(precision: 3), privacy: .public)s"
+        )
 
         agreementEngine.reset()
         audioBuffer = []

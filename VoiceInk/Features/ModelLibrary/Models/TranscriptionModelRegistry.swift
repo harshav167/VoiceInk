@@ -67,17 +67,14 @@ enum TranscriptionModelRegistry {
                 supportsStreaming: true,
                 supportedLanguages: LanguageDictionary.forProvider(isMultilingual: true, provider: .fluidAudio)
             ),
-            FluidAudioModel(
+            PhononModel(
                 name: "phonon-2",
                 displayName: "Phonon-2",
-                description:
-                    "Fermion Research's English retraining of Parakeet V3, the fastest Parakeet on the Neural Engine (CC-BY-4.0)",
-                size: "828 MB",
+                description: "Fermion Research's English retraining of Parakeet V3 on the Neural Engine (CC-BY-4.0)",
+                size: "345 MB",
                 speed: 0.99,
                 accuracy: 0.93,
-                ramUsage: 0.7,
-                supportsStreaming: true,
-                supportedLanguages: LanguageDictionary.forProvider(isMultilingual: false, provider: .fluidAudio)
+                ramUsage: 0.6
             ),
             FluidAudioModel(
                 name: "cohere-transcribe-coreml",
@@ -241,6 +238,10 @@ enum TranscriptionModelRegistry {
             ),
         ]
 
+        #if LOCAL_BUILD
+        return [LFM3TranscriptionModel()] + nonCloudModels
+        #else
         return nonCloudModels
+        #endif
     }()
 }

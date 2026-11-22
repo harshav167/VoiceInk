@@ -125,9 +125,7 @@ actor VoiceInkRefineInferenceEngine {
                     switch event {
                     case .chunk(let text):
                         output.append(contentsOf: text)
-                    case .info:
-                        break
-                    case .toolCall:
+                    case .info, .reasoning, .toolCall, .rejectedToolCall:
                         break
                     }
                 }

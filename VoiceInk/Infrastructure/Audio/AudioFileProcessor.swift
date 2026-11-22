@@ -34,9 +34,9 @@ class AudioProcessor {
         }
     }
 
-    func processAudioToSamples(_ url: URL) async throws -> [Float] {
+    func processAudioToSamples(_ url: URL, normalize: Bool = true) async throws -> [Float] {
         do {
-            return try readUsingAudioFile(url)
+            return try readUsingAudioFile(url, normalize: normalize)
         } catch {
             // AVAudioFile can choke on some container/codec combinations that
             // the media stack can otherwise play (e.g. avfaudio error -50 on
@@ -46,11 +46,11 @@ class AudioProcessor {
             logger.warning(
                 "AVAudioFile pipeline failed for \(url.lastPathComponent, privacy: .public): \(error, privacy: .public). Falling back to AVAssetReader."
             )
-            return try await readUsingAssetReader(url)
+            return try await readUsingAssetReader(url, normalize: normalize)
         }
     }
 
-    private func readUsingAudioFile(_ url: URL) throws -> [Float] {
+    private func readUsingAudioFile(_ url: URL, normalize: Bool) throws -> [Float] {
         guard let audioFile = try? AVAudioFile(forReading: url) else {
             throw AudioProcessingError.invalidAudioFile
         }
@@ -87,7 +87,7 @@ class AudioProcessor {
             try audioFile.read(into: inputBuffer, frameCount: framesToRead)
 
             if sampleRate == AudioFormat.targetSampleRate && channels == AudioFormat.targetChannels {
-                let chunkSamples = convertToWhisperFormat(inputBuffer)
+                let chunkSamples = convertToWhisperFormat(inputBuffer, normalize: normalize)
                 allSamples.append(contentsOf: chunkSamples)
             } else {
                 guard let converter = AVAudioConverter(from: format, to: outputFormat) else {
@@ -120,7 +120,7 @@ class AudioProcessor {
                     throw AudioProcessingError.conversionFailed
                 }
 
-                let chunkSamples = convertToWhisperFormat(outputBuffer)
+                let chunkSamples = convertToWhisperFormat(outputBuffer, normalize: normalize)
                 allSamples.append(contentsOf: chunkSamples)
             }
 
@@ -130,7 +130,7 @@ class AudioProcessor {
         return allSamples
     }
 
-    private func readUsingAssetReader(_ url: URL) async throws -> [Float] {
+    private func readUsingAssetReader(_ url: URL, normalize: Bool) async throws -> [Float] {
         let asset = AVURLAsset(url: url)
         // Match the legacy behavior of processing one stream by using the
         // primary audio track rather than attempting to mix multiple tracks.
@@ -201,9 +201,11 @@ class AudioProcessor {
 
         // Keep the fallback output in the same normalized Float range expected
         // by the WAV export path.
-        let maxSample = samples.map(abs).max() ?? 1
-        if maxSample > 0 {
-            samples = samples.map { $0 / maxSample }
+        if normalize {
+            let maxSample = samples.map(abs).max() ?? 1
+            if maxSample > 0 {
+                samples = samples.map { $0 / maxSample }
+            }
         }
         return samples
     }
@@ -236,7 +238,7 @@ class AudioProcessor {
         }
     }
 
-    private func convertToWhisperFormat(_ buffer: AVAudioPCMBuffer) -> [Float] {
+    private func convertToWhisperFormat(_ buffer: AVAudioPCMBuffer, normalize: Bool) -> [Float] {
         guard let channelData = buffer.floatChannelData else {
             return []
         }
@@ -257,9 +259,11 @@ class AudioProcessor {
             }
         }
 
-        let maxSample = samples.map(abs).max() ?? 1
-        if maxSample > 0 {
-            samples = samples.map { $0 / maxSample }
+        if normalize {
+            let maxSample = samples.map(abs).max() ?? 1
+            if maxSample > 0 {
+                samples = samples.map { $0 / maxSample }
+            }
         }
 
         return samples

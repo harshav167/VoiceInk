@@ -25,6 +25,7 @@ struct SettingsView: View {
         .systemValue
     @AppStorage(RecorderDisplaySettingsKeys.showLiveTranscript) private var showLiveTranscript = true
     @AppStorage(FinishAndSendSettings.key) private var finishAndSendKey = FinishAndSendKey.none.rawValue
+    @AppStorage(FinishAndSendSettings.triggerKey) private var finishAndSendTrigger = FinishAndSendTrigger.returnKey.rawValue
     @State private var showResetOnboardingAlert = false
     @State private var showLanguageRestartAlert = false
     @State private var cancelRecordingShortcutRecorderResetID = 0
@@ -142,6 +143,19 @@ struct SettingsView: View {
                     HStack(spacing: 4) {
                         Text("Auto Send")
                         InfoTip("Press Return while recording to stop and deliver the result. VoiceInk will then paste the result and press the selected key to send it. Choose None to disable this feature.")
+                    }
+                }
+
+                if FinishAndSendKey(rawValue: finishAndSendKey)?.isEnabled == true {
+                    Picker(selection: $finishAndSendTrigger) {
+                        ForEach(FinishAndSendTrigger.allCases, id: \.self) { trigger in
+                            Text(trigger.displayName).tag(trigger.rawValue)
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text("Send On")
+                            InfoTip("Which way of stopping the recording pastes the result and sends it: Return while recording, your recording shortcut (or the recorder stop button), or both.")
+                        }
                     }
                 }
 

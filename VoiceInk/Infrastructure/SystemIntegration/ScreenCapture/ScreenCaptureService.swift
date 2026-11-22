@@ -168,7 +168,7 @@ class ScreenCaptureService: ObservableObject {
     private nonisolated static func compressToJPEG(
         cgImage: CGImage,
         maxDimension: CGFloat = 1920,
-        compressionQuality: CGFloat = 0.75
+        compressionQuality: CGFloat = 0.85
     ) -> Data? {
         let width = CGFloat(cgImage.width)
         let height = CGFloat(cgImage.height)
@@ -194,7 +194,7 @@ class ScreenCaptureService: ObservableObject {
             return nil
         }
 
-        context.interpolationQuality = .medium
+        context.interpolationQuality = .high
         context.draw(cgImage, in: CGRect(x: 0, y: 0, width: targetWidth, height: targetHeight))
         guard let resizedImage = context.makeImage() else { return nil }
 

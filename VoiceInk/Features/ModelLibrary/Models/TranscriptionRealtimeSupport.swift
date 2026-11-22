@@ -6,6 +6,7 @@ enum TranscriptionRealtimeSupport {
     }
 
     static func isRequired(for model: any TranscriptionModel) -> Bool {
+        if model.provider == .lfm3 { return true }
         if model.provider == .fluidAudio {
             return FluidAudioModelManager.requiresRealtime(named: model.name)
         }

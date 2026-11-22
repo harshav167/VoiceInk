@@ -4,6 +4,7 @@ import os
 /// Encapsulates a single recording-to-transcription lifecycle (streaming or file-based).
 @MainActor
 protocol TranscriptionSession: AnyObject {
+    var integratedEnhancement: IntegratedTranscriptionEnhancement? { get }
     /// Prepares the session. Returns an audio chunk callback for streaming, or nil for file-based.
     func prepare(configuration: TranscriptionRuntimeConfiguration) async throws -> ((Data) -> Void)?
 
@@ -12,6 +13,31 @@ protocol TranscriptionSession: AnyObject {
 
     /// Cancel the session and clean up resources.
     func cancel()
+}
+
+struct IntegratedTranscriptionEnhancement {
+    let modelName: String
+    let promptName: String
+    let instructions: String
+}
+
+extension TranscriptionSession {
+    var integratedEnhancement: IntegratedTranscriptionEnhancement? { nil }
+}
+
+extension Transcription {
+    @MainActor
+    func recordModel(_ modelName: String, integrated: IntegratedTranscriptionEnhancement?) {
+        transcriptionModelName = modelName
+        guard let integrated else { return }
+        // A fused result is one contextual transcript; do not invent a second raw/enhanced pair.
+        enhancedText = nil
+        enhancementDuration = nil
+        aiEnhancementModelName = integrated.modelName
+        promptName = integrated.promptName
+        aiRequestSystemMessage = integrated.instructions
+        aiRequestUserMessage = nil
+    }
 }
 
 // MARK: - File-Based Session

@@ -194,6 +194,10 @@ enum BackupImporter {
         }
         if let finishAndSendKey = general.finishAndSendKey.flatMap(FinishAndSendKey.init(rawValue:)) {
             UserDefaults.standard.set(finishAndSendKey.rawValue, forKey: FinishAndSendSettings.key)
+            let trigger = general.finishAndSendTrigger.flatMap(FinishAndSendTrigger.init(rawValue:)) ?? .returnKey
+            UserDefaults.standard.set(trigger.rawValue, forKey: FinishAndSendSettings.triggerKey)
+        } else if let trigger = general.finishAndSendTrigger.flatMap(FinishAndSendTrigger.init(rawValue:)) {
+            UserDefaults.standard.set(trigger.rawValue, forKey: FinishAndSendSettings.triggerKey)
         }
         let importedReviewSchedule = general.autoLearnReviewSchedule.flatMap {
             AutoLearnReviewSchedule(rawValue: $0)

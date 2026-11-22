@@ -289,7 +289,7 @@ private struct AdvancedModelSettingsSection: View {
                 HStack(spacing: 4) {
                     Text("Local Model Pipeline")
                     InfoTip(
-                        "Where Parakeet, Phonon-2 and Cohere Transcribe run. Automatic uses the CPU and Neural Engine for Parakeet and Phonon-2, and adds the GPU for Cohere Transcribe, which is about 3x faster there. Takes effect on the next transcription; the first run after switching prepares the model for the new hardware."
+                        "Where Parakeet and Cohere Transcribe run. Automatic uses the CPU and Neural Engine for Parakeet, and adds the GPU for Cohere Transcribe, which is about 3x faster there. Takes effect on the next transcription; the first run after switching prepares the model for the new hardware. Phonon-2 always runs on the Neural Engine."
                     )
                 }
             }

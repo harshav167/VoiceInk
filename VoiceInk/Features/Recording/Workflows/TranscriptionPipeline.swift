@@ -144,17 +144,33 @@ class TranscriptionPipeline {
 
             let actualDuration = await AudioFileMetadata.duration(for: audioURL)
 
+            let finalMode =
+                resolvedEnhancementConfiguration?.mode
+                ?? resolvedOutputConfiguration.mode
+                ?? formattingConfiguration.mode
+            let didSwitchMode = finalMode != nil && finalMode?.id != transcriptionConfiguration.mode.id
+            let integratedSatisfiesFinalMode = session?.integratedEnhancement != nil && !didSwitchMode
+            let finalModeModel = finalMode?.selectedTranscriptionModelName.flatMap {
+                TranscriptionModelRegistry.model(forSelectionKey: $0, in: TranscriptionModelRegistry.models)
+            }
+            let finalModeUsesLFM3 = (finalModeModel?.provider ?? model.provider) == .lfm3
+
             transcription.text = cleanedText
             transcription.duration = actualDuration
-            transcription.transcriptionModelName = model.displayName
+            transcription.recordModel(
+                model.displayName,
+                integrated: integratedSatisfiesFinalMode ? session?.integratedEnhancement : nil
+            )
             transcription.transcriptionDuration = transcriptionDuration
             transcription.modeName = modeMetadata.name
             transcription.modeEmoji = modeMetadata.emoji
             finalText = cleanedText
 
             if !assistant.isFollowUp {
+                let allowExternalEnhancement = !finalModeUsesLFM3 || resolvedOutputConfiguration.outputMode == .respond
                 let shouldRespondInRecorder =
-                    resolvedOutputConfiguration.outputMode == .respond
+                    allowExternalEnhancement
+                    && resolvedOutputConfiguration.outputMode == .respond
                     && resolvedEnhancementConfiguration?.isEnabled == true
                     && resolvedEnhancementConfiguration.map { configuration in
                         enhancementService?.isConfigured(for: configuration) == true
@@ -169,7 +185,69 @@ class TranscriptionPipeline {
                     !shouldRespondInRecorder && isSkipShortEnhancementEnabled
                     && WordCounter.count(in: text) <= shortEnhancementWordThreshold
 
-                if let enhancementService,
+                if !integratedSatisfiesFinalMode,
+                    finalModeUsesLFM3,
+                    resolvedOutputConfiguration.outputMode != .respond,
+                    let finalMode,
+                    finalMode.isLFM3CleanupEnabled,
+                    !shouldSkipEnhancement
+                {
+                    if shouldCancel() {
+                        await finishCanceledTranscription()
+                        return
+                    }
+
+                    let contextSnapshot = await recordingContextSnapshot()
+                    if let lfm3Context = RecordingContextCaptureService.lfm3CleanupContext(
+                        for: finalMode,
+                        enhancementService: enhancementService,
+                        snapshot: contextSnapshot
+                    ) {
+                        onStateChange(.enhancing)
+                        do {
+                            let targetModel = finalModeModel ?? model
+                            var cleaned = try await serviceRegistry.lfm3TranscriptionService.transcribe(
+                                audioURL: audioURL,
+                                model: targetModel,
+                                context: transcriptionConfiguration.requestContext,
+                                lfm3Context: lfm3Context
+                            )
+                            cleaned = TranscriptionOutputFilter.filter(cleaned)
+                                .trimmingCharacters(in: .whitespacesAndNewlines)
+                            if formattingConfiguration.isTextFormattingEnabled {
+                                cleaned = ParagraphFormatter.format(cleaned)
+                            }
+                            cleaned = WordReplacementService.shared.applyReplacements(
+                                to: cleaned, using: modelContext)
+                            if !cleaned.isEmpty {
+                                transcription.text = cleaned
+                                finalText = cleaned
+                            }
+                            let integrated = IntegratedTranscriptionEnhancement(
+                                modelName: targetModel.displayName,
+                                promptName: lfm3Context.promptName ?? lfm3Context.strategy.title,
+                                instructions: lfm3Context.systemMessage(live: false)
+                            )
+                            transcription.recordModel(targetModel.displayName, integrated: integrated)
+                        } catch {
+                            let errorDescription = EnhancementFailureFormatter.description(for: error)
+                            let failureMessage = EnhancementFailureFormatter.message(description: errorDescription)
+                            transcription.enhancedText = failureMessage
+                            await MainActor.run {
+                                NotificationManager.shared.showNotification(
+                                    title: failureMessage,
+                                    type: .warning
+                                )
+                            }
+                            if shouldCancel() {
+                                await finishCanceledTranscription()
+                                return
+                            }
+                        }
+                    }
+                } else if allowExternalEnhancement,
+                    let enhancementService,
+                    !integratedSatisfiesFinalMode,
                     let resolvedEnhancementConfiguration,
                     resolvedEnhancementConfiguration.isEnabled,
                     enhancementService.isConfigured(for: resolvedEnhancementConfiguration),
@@ -179,7 +257,6 @@ class TranscriptionPipeline {
                         await finishCanceledTranscription()
                         return
                     }
-
                     onStateChange(.enhancing)
                     let textForAI = text
                     if shouldRespondInRecorder {
@@ -226,6 +303,12 @@ class TranscriptionPipeline {
             transcription.transcriptionStatus = TranscriptionStatus.completed.rawValue
         } catch {
             let errorDescription = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            logger.error(
+                """
+                Transcription failed model=\(model.displayName, privacy: .public) \
+                errorType=\(String(describing: type(of: error)), privacy: .public) \
+                error=\(errorDescription, privacy: .private)
+                """)
 
             if let nativeAppleError = error as? NativeAppleTranscriptionService.ServiceError,
                 nativeAppleError.shouldShowNotification

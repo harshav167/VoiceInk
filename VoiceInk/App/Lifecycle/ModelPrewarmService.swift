@@ -81,6 +81,8 @@ final class ModelPrewarmService: ObservableObject {
                 try await fluidAudioService.prewarmUnifiedModel(
                     isRealtime: transcriptionConfiguration.isRealtimeEnabled
                 )
+            } else if currentModel.provider == .lfm3 {
+                try await LFM3OmniEngine.shared.prepare()
             } else {
                 guard let audioURL = prewarmAudioURL else {
                     logger.error("❌ Prewarm audio file (sound7.wav) not found")
@@ -121,7 +123,7 @@ final class ModelPrewarmService: ObservableObject {
         }
 
         switch model.provider {
-        case .whisper, .fluidAudio:
+        case .whisper, .fluidAudio, .phonon, .lfm3:
             return true
         default:
             logger.notice("Skipping prewarm - cloud models don't need it")

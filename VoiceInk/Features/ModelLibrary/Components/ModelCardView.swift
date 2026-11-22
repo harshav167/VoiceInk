@@ -43,6 +43,12 @@ struct ModelCardView: View {
                 if let transcribeCppModel = model as? TranscribeCppModel {
                     TranscribeCppModelCardView(model: transcribeCppModel)
                 }
+            case .phonon:
+                if let phononModel = model as? PhononModel {
+                    PhononModelCardView(model: phononModel)
+                }
+            case .lfm3:
+                LFM3ModelCardView(model: model)
             case .nativeApple:
                 if let nativeAppleModel = model as? NativeAppleModel {
                     NativeAppleModelCardView(

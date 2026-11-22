@@ -353,7 +353,7 @@ struct ModelManagementView: View {
     private var localModels: [any TranscriptionModel] {
         transcriptionModelManager.allAvailableModels.filter {
             ($0.provider == .whisper || $0.provider == .nativeApple || $0.provider == .fluidAudio
-                || $0.provider == .transcribeCpp)
+                || $0.provider == .transcribeCpp || $0.provider == .phonon || $0.provider == .lfm3)
                 && transcriptionModelManager.isAvailableOnCurrentOS($0)
         }
     }

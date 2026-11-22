@@ -17,6 +17,8 @@ class TranscriptionServiceRegistry {
     private(set) lazy var cloudTranscriptionService = CloudTranscriptionService(modelContext: modelContext)
     private(set) lazy var nativeAppleTranscriptionService = NativeAppleTranscriptionService()
     private(set) lazy var fluidAudioTranscriptionService = FluidAudioTranscriptionService()
+    private(set) lazy var phononTranscriptionService = PhononTranscriptionService()
+    private(set) lazy var lfm3TranscriptionService = LFM3TranscriptionService()
     private var cachedTranscribeCppTranscriptionService: TranscribeCppTranscriptionService?
 
     var transcribeCppTranscriptionService: TranscribeCppTranscriptionService {
@@ -42,6 +44,10 @@ class TranscriptionServiceRegistry {
             return fluidAudioTranscriptionService
         case .transcribeCpp:
             return transcribeCppTranscriptionService
+        case .phonon:
+            return phononTranscriptionService
+        case .lfm3:
+            return lfm3TranscriptionService
         case .nativeApple:
             return nativeAppleTranscriptionService
         default:
@@ -61,11 +67,16 @@ class TranscriptionServiceRegistry {
 
     /// Creates a streaming or file-based session for the resolved transcription configuration.
     func createSession(
-        for configuration: TranscriptionRuntimeConfiguration, onPartialTranscript: ((String) -> Void)? = nil
+        for configuration: TranscriptionRuntimeConfiguration,
+        initialContext: @escaping () async -> LFM3SessionContext = { .baseline },
+        onPartialTranscript: ((String) -> Void)? = nil
     ) -> TranscriptionSession {
         let model = configuration.model
 
         if shouldUseRealtimeTranscription(for: configuration) {
+            if model.provider == .lfm3 {
+                return LFM3TranscriptionSession(context: initialContext, onPartial: onPartialTranscript)
+            }
             let streamingService = StreamingTranscriptionService(
                 modelContext: modelContext,
                 fluidAudioService: model.provider == .fluidAudio ? fluidAudioTranscriptionService : nil,

@@ -103,7 +103,7 @@ class VoiceInkEngine: NSObject, ObservableObject {
     private var activeRecordingUseCase: RecordingUseCase = .newSession
     private var activePipelineUseCase: RecordingUseCase = .newSession
     private var activeRecordingContextStore: RecordingContextSnapshotStore?
-    private var activeRecordingContextTasks: [Task<Void, Never>] = []
+    private var activeRecordingContextTasks: RecordingContextCaptureTasks?
     private var voiceInkRefinePreparationTask: Task<Void, Never>?
 
     let recorder = Recorder()
@@ -205,7 +205,7 @@ class VoiceInkEngine: NSObject, ObservableObject {
                         on: transcription,
                         audioURL: recordedFile,
                         contextStore: activeRecordingContextStore,
-                        sendAfterPaste: sendAfterPaste
+                        sendAfterPaste: sendAfterPaste || FinishAndSendSettings.sendsOnShortcutStop
                     )
                 } else {
                     await finishActiveRecorderCancellation()
@@ -325,6 +325,9 @@ class VoiceInkEngine: NSObject, ObservableObject {
                             if self.serviceRegistry.shouldUseRealtimeTranscription(for: transcriptionConfiguration) {
                                 let session = self.serviceRegistry.createSession(
                                     for: transcriptionConfiguration,
+                                    initialContext: RecordingContextCaptureService.lfm3InitialContext(
+                                        for: transcriptionConfiguration, enhancementService: self.enhancementService,
+                                        store: self.activeRecordingContextStore, captures: self.activeRecordingContextTasks),
                                     onPartialTranscript: { [weak self] partial in
                                         Task { @MainActor in
                                             guard let self,
@@ -526,8 +529,8 @@ class VoiceInkEngine: NSObject, ObservableObject {
     }
 
     private func clearActiveRecordingContext() {
-        activeRecordingContextTasks.forEach { $0.cancel() }
-        activeRecordingContextTasks.removeAll()
+        activeRecordingContextTasks?.cancelAll()
+        activeRecordingContextTasks = nil
         activeRecordingContextStore = nil
     }
 

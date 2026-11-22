@@ -170,6 +170,22 @@ struct ConfigurationRow: View {
             )
         }
     }
+    private var isLFM3Mode: Bool {
+        switch ModeRuntimeResolver.transcriptionModelResolution(
+            mode: config,
+            transcriptionModelManager: transcriptionModelManager
+        ) {
+        case .available(_, let model): return model.provider == .lfm3
+        case .noMode, .noSelection, .modelNotFound, .unavailable: return false
+        }
+    }
+
+    private var lfm3SummaryLabel: String {
+        switch config.effectiveLFM3CleanupPlan {
+        case .contextualReview: return String(localized: "Full review")
+        case .contextual, .baseline: return String(localized: "Live cleanup")
+        }
+    }
 
     private var selectedLanguage: String? {
         if let langCode = config.selectedLanguage {
@@ -381,7 +397,7 @@ struct ConfigurationRow: View {
                     )
                 }
 
-                if config.isAIEnhancementEnabled,
+                if !isLFM3Mode, config.isAIEnhancementEnabled,
                     config.selectedAIProvider != AIProvider.localCLI.rawValue,
                     let modelName = config.selectedAIModel,
                     !modelName.isEmpty
@@ -441,14 +457,16 @@ struct ConfigurationRow: View {
                             .stroke(AppTheme.Border.control, lineWidth: 0.5)
                     )
                 }
-                if config.isAIEnhancementEnabled {
+                if isLFM3Mode ? config.isLFM3CleanupEnabled : config.isAIEnhancementEnabled {
                     HStack(spacing: 4) {
                         Image(systemName: "sparkles")
                             .font(.system(size: 10))
                         Text(
-                            config.selectedAIProvider == AIProvider.voiceInkRefine.rawValue
-                                ? VoiceInkRefineService.providerName
-                                : selectedPrompt?.title ?? "AI"
+                            isLFM3Mode
+                                ? lfm3SummaryLabel
+                                : config.selectedAIProvider == AIProvider.voiceInkRefine.rawValue
+                                    ? VoiceInkRefineService.providerName
+                                    : selectedPrompt?.title ?? "AI"
                         )
                             .font(.caption)
                     }

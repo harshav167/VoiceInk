@@ -34,7 +34,6 @@ class FluidAudioModelManager: ObservableObject {
         "parakeet-tdt-0.6b-v2": .v2,
         "parakeet-tdt-0.6b-v3": .v3,
         "parakeet-ultra": .ultra,
-        "phonon-2": .phonon2,
     ]
 
     private enum FluidAudioModelKind {
@@ -164,7 +163,13 @@ class FluidAudioModelManager: ObservableObject {
         return Language(rawValue: languageCode)
     }
 
-    init() {}
+    init() {
+        let legacyPhononDirectory = AsrModels.defaultCacheDirectory(for: .phonon2)
+        Task.detached(priority: .utility) {
+            guard FileManager.default.fileExists(atPath: legacyPhononDirectory.path) else { return }
+            try? FileManager.default.removeItem(at: legacyPhononDirectory)
+        }
+    }
 
     // MARK: - Query helpers
 
@@ -183,12 +188,7 @@ class FluidAudioModelManager: ObservableObject {
                 FileManager.default.fileExists(atPath: directory.appendingPathComponent($0).path)
             }
         case .parakeet(let version):
-            let directory = cacheDirectory(for: version)
-            let denseEncoderExists =
-                version != .phonon2
-                || FileManager.default.fileExists(
-                    atPath: directory.appendingPathComponent(Self.phonon2DenseEncoderFile).path)
-            return AsrModels.modelsExist(at: directory, version: version) && denseEncoderExists
+            return AsrModels.modelsExist(at: cacheDirectory(for: version), version: version)
                 && Self.vadModelFilesExist()
         }
     }
@@ -319,9 +319,7 @@ class FluidAudioModelManager: ObservableObject {
                     repo,
                     to: cacheDirectory.deletingLastPathComponent(),
                     variant: version == .v3 ? ParakeetEncoderPrecision.int8.rawValue : nil,
-                    additionalModelNames: version == .phonon2
-                        ? [ModelNames.ASR.vocabularyFile, Self.phonon2DenseEncoderFile]
-                        : [ModelNames.ASR.vocabularyFile],
+                    additionalModelNames: [ModelNames.ASR.vocabularyFile],
                     progressHandler: Self.downloadOnlyProgressHandler(forwarding: progressHandler)
                 )
                 preserveModelFiles = true
@@ -385,8 +383,6 @@ class FluidAudioModelManager: ObservableObject {
             return .parakeetV3
         case .ultra:
             return .parakeetUltra
-        case .phonon2:
-            return .phonon2
         default:
             return nil
         }
@@ -604,10 +600,6 @@ extension FluidAudioModelManager {
             encoderDir: directory, decoderDir: directory, vocabDir: directory, computeUnits: pipeline.computeUnits)
     }
 
-    /// Phonon-2's default encoder is sparse. Core ML's GPU path re-expands sparse weights on every load (minutes,
-    /// never cached), so GPU pipelines run its dense 6-bit build instead.
-    nonisolated static let phonon2DenseEncoderFile = "Encoder_lut6.mlmodelc"
-
     /// Loads a Parakeet-family model for `pipeline`. The preprocessor stays on the CPU (FluidAudio pins it);
     /// the encoder, decoder and joint run on the pipeline's compute units.
     nonisolated static func loadParakeetModels(
@@ -625,39 +617,12 @@ extension FluidAudioModelManager {
 
         let configuration = MLModelConfiguration()
         configuration.computeUnits = pipeline.computeUnits
-        guard version == .phonon2 else {
-            return try await AsrModels.load(
-                from: cacheDirectory,
-                configuration: configuration,
-                version: version,
-                encoderPrecision: .int8,
-                encoderComputeUnits: pipeline.computeUnits
-            )
-        }
-
-        let denseEncoderURL = cacheDirectory.appendingPathComponent(phonon2DenseEncoderFile)
-        guard FileManager.default.fileExists(atPath: denseEncoderURL.path) else {
-            throw AsrModelsError.loadingFailed(
-                "Phonon-2's GPU encoder is not downloaded. Download Phonon-2 again from AI Models."
-            )
-        }
-        // FluidAudio always loads the default (sparse) encoder; keep it on the Neural Engine, where its compiled form
-        // is cached, take the decoder, joint and vocabulary, and run the dense encoder on the selected units.
-        let shared = try await AsrModels.load(
+        return try await AsrModels.load(
             from: cacheDirectory,
             configuration: configuration,
             version: version,
-            encoderComputeUnits: .cpuAndNeuralEngine
-        )
-        let denseEncoder = try await MLModel.load(contentsOf: denseEncoderURL, configuration: configuration)
-        return AsrModels(
-            encoder: denseEncoder,
-            preprocessor: shared.preprocessor,
-            decoder: shared.decoder,
-            joint: shared.joint,
-            configuration: shared.configuration,
-            vocabulary: shared.vocabulary,
-            version: version
+            encoderPrecision: .int8,
+            encoderComputeUnits: pipeline.computeUnits
         )
     }
 

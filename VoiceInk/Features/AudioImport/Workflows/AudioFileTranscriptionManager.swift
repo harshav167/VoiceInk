@@ -149,7 +149,8 @@ class AudioTranscriptionManager: ObservableObject {
             let accessing = item.url.startAccessingSecurityScopedResource()
             defer { if accessing { item.url.stopAccessingSecurityScopedResource() } }
 
-            let samples = try await audioProcessor.processAudioToSamples(item.url)
+            let samples = try await audioProcessor.processAudioToSamples(
+                item.url, normalize: currentModel.provider != .lfm3)
             try Task.checkCancellation()
 
             let audioAsset = AVURLAsset(url: item.url)
@@ -171,11 +172,33 @@ class AudioTranscriptionManager: ObservableObject {
             // Phase: Transcribing
             item.status = .processing(phase: .transcribing)
             let transcriptionStart = Date()
-            var text = try await serviceRegistry.transcribe(
-                audioURL: permanentURL,
-                model: currentModel,
-                context: transcriptionConfiguration.requestContext
-            )
+            var text: String
+            var integrated: IntegratedTranscriptionEnhancement?
+            if currentModel.provider == .lfm3 {
+                let lfm3Context = RecordingContextCaptureService.lfm3RetranscriptionContext(
+                    for: transcriptionConfiguration,
+                    enhancementService: engine.enhancementService
+                )
+                text = try await serviceRegistry.lfm3TranscriptionService.transcribe(
+                    audioURL: permanentURL,
+                    model: currentModel,
+                    context: transcriptionConfiguration.requestContext,
+                    lfm3Context: lfm3Context
+                )
+                if lfm3Context.strategy != .baseline {
+                    integrated = IntegratedTranscriptionEnhancement(
+                        modelName: currentModel.displayName,
+                        promptName: lfm3Context.promptName ?? lfm3Context.strategy.title,
+                        instructions: lfm3Context.systemMessage(live: false)
+                    )
+                }
+            } else {
+                text = try await serviceRegistry.transcribe(
+                    audioURL: permanentURL,
+                    model: currentModel,
+                    context: transcriptionConfiguration.requestContext
+                )
+            }
             let transcriptionDuration = Date().timeIntervalSince(transcriptionStart)
             text = TranscriptionOutputFilter.filter(text)
             text = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -205,7 +228,9 @@ class AudioTranscriptionManager: ObservableObject {
                     }
                 }
 
-            if let enhancementService = engine.enhancementService,
+            if integrated == nil,
+                currentModel.provider != .lfm3 || mode.outputMode == .respond,
+                let enhancementService = engine.enhancementService,
                 let enhancementConfiguration,
                 enhancementConfiguration.isEnabled,
                 enhancementService.isConfigured(for: enhancementConfiguration)
@@ -260,6 +285,7 @@ class AudioTranscriptionManager: ObservableObject {
                     modeName: modeMetadata.name,
                     modeEmoji: modeMetadata.emoji
                 )
+                transcription.recordModel(currentModel.displayName, integrated: integrated)
             }
 
             modelContext.insert(transcription)

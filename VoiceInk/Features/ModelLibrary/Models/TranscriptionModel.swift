@@ -5,6 +5,8 @@ enum ModelProvider: String, Codable, Hashable, CaseIterable {
     case whisper = "Whisper"
     case fluidAudio = "Parakeet"
     case transcribeCpp = "TranscribeCpp"
+    case phonon = "Phonon"
+    case lfm3 = "LFM3 Omni (MLX)"
     case groq = "Groq"
     case elevenLabs = "ElevenLabs"
     case deepgram = "Deepgram"
@@ -150,6 +152,23 @@ struct TranscribeCppModel: TranscriptionModel, Sendable {
         self.supportsStreaming = supportsStreaming
         self.supportedLanguages = supportedLanguages
     }
+}
+
+/// Phonon-2 (Fermion Research) served by the phonon-coreml package: encoder on the Neural Engine, decoder on the CPU.
+struct PhononModel: TranscriptionModel, Sendable {
+    let id = UUID()
+    let name: String
+    let displayName: String
+    let description: String
+    let provider: ModelProvider = .phonon
+    let size: String
+    let speed: Double
+    let accuracy: Double
+    let ramUsage: Double
+    let publisher = "Fermion Research"
+    let supportsStreaming = true
+    let isMultilingualModel = false
+    let supportedLanguages: [String: String] = LanguageDictionary.forProvider(isMultilingual: false)
 }
 
 // A new struct for cloud models

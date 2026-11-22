@@ -10,7 +10,7 @@ final class RecorderPanelShortcutManager: ObservableObject {
     private var shortcutChangeObserver: NSObjectProtocol?
     private var settingsChangeObserver: NSObjectProtocol?
     private var recordingStateCancellable: AnyCancellable?
-    private var observedSendKey: FinishAndSendKey
+    private var observedSendsOnReturn: Bool
     private let visibleRecorderMonitor = ShortcutMonitor()
 
     // Double-tap Escape handling
@@ -28,7 +28,7 @@ final class RecorderPanelShortcutManager: ObservableObject {
 
     init(recorderUIManager: RecorderUIManager) {
         self.recorderUIManager = recorderUIManager
-        self.observedSendKey = FinishAndSendSettings.selectedKey
+        self.observedSendsOnReturn = FinishAndSendSettings.sendsOnReturn
         setupShortcutChangeObserver()
         settingsChangeObserver = NotificationCenter.default.addObserver(
             forName: UserDefaults.didChangeNotification,
@@ -37,9 +37,9 @@ final class RecorderPanelShortcutManager: ObservableObject {
         ) { [weak self] _ in
             Task { @MainActor in
                 guard let self else { return }
-                let sendKey = FinishAndSendSettings.selectedKey
-                guard sendKey != self.observedSendKey else { return }
-                self.observedSendKey = sendKey
+                let sendsOnReturn = FinishAndSendSettings.sendsOnReturn
+                guard sendsOnReturn != self.observedSendsOnReturn else { return }
+                self.observedSendsOnReturn = sendsOnReturn
                 self.refreshVisibleShortcuts()
             }
         }
@@ -111,7 +111,7 @@ final class RecorderPanelShortcutManager: ObservableObject {
             shortcuts[.recorderPanelEscape] = .key(keyCode: UInt16(kVK_Escape), modifierFlags: [])
         }
 
-        if FinishAndSendSettings.selectedKey.isEnabled && recorderUIManager.isActivelyRecording {
+        if FinishAndSendSettings.sendsOnReturn && recorderUIManager.isActivelyRecording {
             shortcuts[.recorderPanelReturn] = .key(keyCode: UInt16(kVK_Return), modifierFlags: [])
         }
 
@@ -145,7 +145,7 @@ final class RecorderPanelShortcutManager: ObservableObject {
         case .recorderPanelEscape:
             await handleEscapeShortcut()
         case .recorderPanelReturn:
-            if FinishAndSendSettings.selectedKey.isEnabled {
+            if FinishAndSendSettings.sendsOnReturn {
                 await recorderUIManager.finishRecordingAndSend()
             }
         case .recorderPanelMode(let index):

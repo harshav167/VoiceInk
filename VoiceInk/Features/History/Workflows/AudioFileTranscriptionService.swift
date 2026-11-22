@@ -69,7 +69,9 @@ class AudioTranscriptionService: ObservableObject {
             let modeEmoji = (mode?.isEnabled == true) ? mode?.icon.value : nil
 
             let transcriptionStart = Date()
-            var text = try await serviceRegistry.transcribe(audioURL: url, model: model, context: requestContext)
+            let (transcribed, integrated) = try await transcribe(
+                url: url, model: model, mode: mode, language: language, requestContext: requestContext)
+            var text = transcribed
             let transcriptionDuration = Date().timeIntervalSince(transcriptionStart)
             text = TranscriptionOutputFilter.filter(text)
             text = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -117,7 +119,9 @@ class AudioTranscriptionService: ObservableObject {
                 }
 
             // Apply AI enhancement if enabled
-            if let enhancementService = enhancementService,
+            if integrated == nil,
+                model.provider != .lfm3 || mode?.outputMode == .respond,
+                let enhancementService = enhancementService,
                 let enhancementConfiguration,
                 enhancementConfiguration.isEnabled,
                 enhancementService.isConfigured(for: enhancementConfiguration)
@@ -142,7 +146,8 @@ class AudioTranscriptionService: ObservableObject {
                         aiRequestSystemMessage: enhancementResult.systemMessage,
                         aiRequestUserMessage: enhancementResult.userMessage,
                         modeName: modeName,
-                        modeEmoji: modeEmoji
+                        modeEmoji: modeEmoji,
+                        transcriptionStatus: .completed
                     )
                     modelContext.insert(newTranscription)
                     do {
@@ -174,7 +179,8 @@ class AudioTranscriptionService: ObservableObject {
                         promptName: enhancementConfiguration.prompt?.title,
                         transcriptionDuration: transcriptionDuration,
                         modeName: modeName,
-                        modeEmoji: modeEmoji
+                        modeEmoji: modeEmoji,
+                        transcriptionStatus: .completed
                     )
                     modelContext.insert(newTranscription)
                     do {
@@ -203,11 +209,14 @@ class AudioTranscriptionService: ObservableObject {
                     promptName: nil,
                     transcriptionDuration: transcriptionDuration,
                     modeName: modeName,
-                    modeEmoji: modeEmoji
+                    modeEmoji: modeEmoji,
+                    transcriptionStatus: .completed
                 )
+                newTranscription.recordModel(model.displayName, integrated: integrated)
                 modelContext.insert(newTranscription)
                 do {
                     try modelContext.save()
+                    NotificationCenter.default.post(name: .transcriptionCreated, object: newTranscription)
                     NotificationCenter.default.post(name: .transcriptionCompleted, object: newTranscription)
                 } catch {
                     logger.error("❌ Failed to save transcription: \(error, privacy: .public)")
@@ -228,5 +237,32 @@ class AudioTranscriptionService: ObservableObject {
             isTranscribing = false
             throw error
         }
+    }
+}
+
+extension AudioTranscriptionService {
+    /// LFM3 cleans up inside the model. Retrying an LFM3 cleanup mode re-runs that cleanup with the
+    /// mode's instructions (the original screenshot and clipboard are not stored) instead of plain
+    /// ASR followed by the mode's external provider. Other models go through the service registry.
+    fileprivate func transcribe(
+        url: URL, model: any TranscriptionModel, mode: ModeConfig?, language: String,
+        requestContext: TranscriptionRequestContext
+    ) async throws -> (String, IntegratedTranscriptionEnhancement?) {
+        guard model.provider == .lfm3, let mode else {
+            return (try await serviceRegistry.transcribe(audioURL: url, model: model, context: requestContext), nil)
+        }
+        let runtime = TranscriptionRuntimeConfiguration(
+            mode: mode, model: model, language: language, isRealtimeEnabled: false)
+        let context = RecordingContextCaptureService.lfm3RetranscriptionContext(
+            for: runtime, enhancementService: enhancementService)
+        let samples = try await AudioProcessor().processAudioToSamples(url, normalize: false)
+        let text = try await LFM3OmniEngine.shared.transcribe(samples: samples, context: context)
+        guard context.strategy != .baseline else { return (text, nil) }
+        return (
+            text,
+            IntegratedTranscriptionEnhancement(
+                modelName: model.displayName, promptName: context.promptName ?? context.strategy.title,
+                instructions: context.systemMessage(live: false))
+        )
     }
 }

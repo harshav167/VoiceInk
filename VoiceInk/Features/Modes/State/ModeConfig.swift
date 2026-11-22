@@ -58,7 +58,19 @@ struct ModeConfig: Codable, Identifiable, Equatable {
     var useScreenCapture: Bool
     var selectedAIProvider: String?
     var selectedAIModel: String?
+    var lfm3CleanupPlan: LFM3POCStrategy?
     var outputMode: ModeOutputMode = .paste
+
+    var effectiveLFM3CleanupPlan: LFM3POCStrategy {
+        if let plan = lfm3CleanupPlan {
+            return plan
+        }
+        return isAIEnhancementEnabled ? .defaultCleanupPlan : .baseline
+    }
+
+    var isLFM3CleanupEnabled: Bool {
+        effectiveLFM3CleanupPlan != .baseline
+    }
     var autoSendKey: FinishAndSendKey = .none
     var customCommand: ModeCustomCommand?
     var isEnabled: Bool = true
@@ -68,7 +80,7 @@ struct ModeConfig: Codable, Identifiable, Equatable {
         case id, name, icon, appConfigs, urlConfigs, triggerGroups, triggerWords, isAIEnhancementEnabled,
             selectedPrompt, isRealtimeTranscriptionEnabled, selectedLanguage, isTextFormattingEnabled,
             useClipboardContext, useSelectedTextContext, useScreenCapture, selectedAIProvider, selectedAIModel,
-            outputMode, autoSendKey, isAutoSendEnabled, customCommand, isEnabled, isDefault
+            lfm3CleanupPlan, outputMode, autoSendKey, isAutoSendEnabled, customCommand, isEnabled, isDefault
         case legacyEmoji = "emoji"
         case selectedWhisperModel
         case selectedTranscriptionModelName
@@ -82,6 +94,7 @@ struct ModeConfig: Codable, Identifiable, Equatable {
         selectedLanguage: String? = nil, useClipboardContext: Bool = false, useSelectedTextContext: Bool = true,
         useScreenCapture: Bool = false,
         isTextFormattingEnabled: Bool = false, selectedAIProvider: String? = nil, selectedAIModel: String? = nil,
+        lfm3CleanupPlan: LFM3POCStrategy? = nil,
         outputMode: ModeOutputMode = .paste, autoSendKey: FinishAndSendKey = .none,
         customCommand: ModeCustomCommand? = nil,
         isEnabled: Bool = true, isDefault: Bool = false
@@ -103,6 +116,7 @@ struct ModeConfig: Codable, Identifiable, Equatable {
         self.customCommand = customCommand
         self.selectedAIProvider = selectedAIProvider
         self.selectedAIModel = selectedAIModel
+        self.lfm3CleanupPlan = lfm3CleanupPlan
         self.selectedTranscriptionModelName = selectedTranscriptionModelName
         self.isRealtimeTranscriptionEnabled = isRealtimeTranscriptionEnabled
         self.selectedLanguage = selectedLanguage ?? "en"
@@ -161,6 +175,7 @@ struct ModeConfig: Codable, Identifiable, Equatable {
             ?? UserDefaults.standard.bool(forKey: "useScreenCaptureContext")
         selectedAIProvider = try container.decodeIfPresent(String.self, forKey: .selectedAIProvider)
         selectedAIModel = try container.decodeIfPresent(String.self, forKey: .selectedAIModel)
+        lfm3CleanupPlan = try container.decodeIfPresent(LFM3POCStrategy.self, forKey: .lfm3CleanupPlan)
         outputMode = try container.decodeIfPresent(ModeOutputMode.self, forKey: .outputMode) ?? .paste
         customCommand = try container.decodeIfPresent(ModeCustomCommand.self, forKey: .customCommand)
         // Keep compatibility with saved modes from before Auto Send became global.
@@ -204,6 +219,7 @@ struct ModeConfig: Codable, Identifiable, Equatable {
         try container.encode(useScreenCapture, forKey: .useScreenCapture)
         try container.encodeIfPresent(selectedAIProvider, forKey: .selectedAIProvider)
         try container.encodeIfPresent(selectedAIModel, forKey: .selectedAIModel)
+        try container.encodeIfPresent(lfm3CleanupPlan, forKey: .lfm3CleanupPlan)
         try container.encode(outputMode, forKey: .outputMode)
         try container.encode(autoSendKey, forKey: .autoSendKey)
         try container.encodeIfPresent(customCommand, forKey: .customCommand)

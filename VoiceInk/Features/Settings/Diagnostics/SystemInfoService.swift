@@ -170,7 +170,16 @@ final class SystemInfoService {
             ?? mode.selectedTranscriptionModelName
             ?? "Not configured"
         let languageDescription = getModeLanguageDescription(for: mode, model: model)
-        let enhancementDescription = getModeEnhancementDescription(for: mode)
+        // LFM3 cleans up inside the transcription model unless the mode uses Respond output.
+        let enhancementDescription: String
+        if model?.provider == .lfm3, mode.outputMode != .respond {
+            let plan = mode.effectiveLFM3CleanupPlan.title
+            enhancementDescription = mode.isLFM3CleanupEnabled
+                ? "Integrated in \(model?.displayName ?? "LFM3") — \(plan)"
+                : "Off (transcription only)"
+        } else {
+            enhancementDescription = getModeEnhancementDescription(for: mode)
+        }
 
         return """
             Mode: \(mode.name)

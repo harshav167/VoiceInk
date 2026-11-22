@@ -135,9 +135,40 @@ final class VoiceInkRefineModelDownloader: @unchecked Sendable {
         isSnapshotComplete(at: snapshotDirectory, files: files)
     }
 
+    enum SnapshotCompletionStatus: Sendable, Equatable {
+        case complete
+        case needsVerification
+        case incomplete
+    }
+
+    static func snapshotCompletionFastStatus(
+        at snapshotDirectory: URL,
+        files: [ModelFile],
+        requireIntegrityRecord: Bool = false
+    ) -> SnapshotCompletionStatus {
+        guard let currentRecord = verificationRecord(
+            at: snapshotDirectory,
+            files: files
+        ) else {
+            return .incomplete
+        }
+
+        let recordURL = snapshotDirectory.appendingPathComponent(verificationRecordFilename)
+        if !FileManager.default.fileExists(atPath: recordURL.path) {
+            return requireIntegrityRecord ? .incomplete : .complete
+        }
+
+        if storedVerificationRecord(at: snapshotDirectory) == currentRecord {
+            return .complete
+        }
+
+        return .needsVerification
+    }
+
     static func isSnapshotComplete(
         at snapshotDirectory: URL,
-        files: [ModelFile]
+        files: [ModelFile],
+        requireIntegrityRecord: Bool = false
     ) -> Bool {
         guard let currentRecord = verificationRecord(
             at: snapshotDirectory,
@@ -148,6 +179,9 @@ final class VoiceInkRefineModelDownloader: @unchecked Sendable {
 
         let recordURL = snapshotDirectory.appendingPathComponent(verificationRecordFilename)
         if !FileManager.default.fileExists(atPath: recordURL.path) {
+            if requireIntegrityRecord {
+                return false
+            }
             // Existing installations use the original size-based completion check.
             return true
         }
@@ -172,14 +206,21 @@ final class VoiceInkRefineModelDownloader: @unchecked Sendable {
 
     private let repositoryID: String
     private let revision: String
+    private let files: [ModelFile]
     private let snapshotDirectory: URL
     private let partialsDirectory: URL
-    private let progressTracker = ProgressTracker(totalBytes: totalBytes)
+    private let progressTracker: ProgressTracker
     private let maximumAttempts = 4
 
-    init(repositoryID: String, revision: String, modelRootDirectory: URL) {
+    /// `files` defaults to the VoiceInk Refine snapshot; other pinned Hugging Face snapshots pass their own list.
+    init(
+        repositoryID: String, revision: String, modelRootDirectory: URL,
+        files: [ModelFile] = VoiceInkRefineModelDownloader.files
+    ) {
         self.repositoryID = repositoryID
         self.revision = revision
+        self.files = files
+        progressTracker = ProgressTracker(totalBytes: files.reduce(Int64(0)) { $0 + $1.size })
         snapshotDirectory = Self.snapshotDirectory(
             in: modelRootDirectory,
             repositoryID: repositoryID,
@@ -222,7 +263,7 @@ final class VoiceInkRefineModelDownloader: @unchecked Sendable {
     private func prepareFiles() throws -> [ModelFile] {
         var pendingFiles: [ModelFile] = []
 
-        for file in Self.files {
+        for file in files {
             try Task.checkCancellation()
 
             let finalURL = snapshotDirectory.appendingPathComponent(file.path)
@@ -453,7 +494,7 @@ final class VoiceInkRefineModelDownloader: @unchecked Sendable {
     }
 
     private func validateSnapshot() throws {
-        for file in Self.files {
+        for file in files {
             try Self.validateDownloadedFile(
                 at: snapshotDirectory.appendingPathComponent(file.path),
                 file: file
@@ -462,7 +503,7 @@ final class VoiceInkRefineModelDownloader: @unchecked Sendable {
 
         guard let record = Self.verificationRecord(
             at: snapshotDirectory,
-            files: Self.files
+            files: files
         ) else {
             throw VoiceInkRefineDownloadError.invalidResponse(
                 Self.verificationRecordFilename

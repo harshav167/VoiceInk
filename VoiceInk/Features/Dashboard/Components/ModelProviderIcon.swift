@@ -43,6 +43,9 @@ private struct ModelProviderIdentity {
             if let transcribeCppModel = model as? TranscribeCppModel {
                 return publisherIdentity(transcribeCppModel.publisher)
             }
+            if let phononModel = model as? PhononModel {
+                return publisherIdentity(phononModel.publisher)
+            }
             if FluidAudioModelManager.isCohereModel(named: model.name) {
                 return publisherIdentity("Cohere")
             }
@@ -126,6 +129,14 @@ private struct ModelProviderIdentity {
             displayName = "On-Device"
             providerKey = "On-Device"
             fallbackSystemImage = "waveform.badge.magnifyingglass"
+        case .phonon:
+            displayName = "Fermion Research"
+            providerKey = "Fermion Research"
+            fallbackSystemImage = "waveform"
+        case .lfm3:
+            displayName = "Liquid AI"
+            providerKey = "Liquid AI"
+            fallbackSystemImage = "waveform"
         case .nativeApple:
             displayName = "Apple Speech"
             providerKey = "Native Apple"

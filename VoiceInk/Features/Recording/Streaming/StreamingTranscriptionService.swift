@@ -206,13 +206,14 @@ class StreamingTranscriptionService {
             throw StreamingTranscriptionError.notConnected
         }
 
-        if provider is FluidAudioUnifiedStreamingProvider, metrics.snapshot().droppedChunks > 0 {
-            logger.warning("Unified streaming dropped audio; using the full recording for batch transcription")
+        if (provider is FluidAudioUnifiedStreamingProvider || provider is PhononStreamingProvider),
+            metrics.snapshot().droppedChunks > 0
+        {
+            logger.warning("Streaming dropped audio; using the full recording for batch transcription")
             state = .done
             await cleanupStreaming()
             return .requiresBatchFallback
         }
-
         if provider.stopDisposition == .useBatchFallback {
             logger.notice("Streaming provider requested full batch fallback")
             state = .done
@@ -229,6 +230,15 @@ class StreamingTranscriptionService {
 
         // Finish the chunk source so the send loop drains remaining chunks and exits naturally.
         await drainRemainingChunks()
+
+        if (provider is FluidAudioUnifiedStreamingProvider || provider is PhononStreamingProvider),
+            metrics.snapshot().droppedChunks > 0
+        {
+            logger.warning("Streaming dropped audio before drain completed; using the full recording for batch transcription")
+            state = .done
+            await cleanupStreaming()
+            return .requiresBatchFallback
+        }
 
         // Providers with a documented terminal acknowledgement expose an authoritative
         // full-transcript stream. All other providers retain the existing committed-event behavior.
@@ -334,6 +344,9 @@ class StreamingTranscriptionService {
                 )
             }
             return TranscribeCppStreamingProvider(transcribeCppService: transcribeCppService)
+        }
+        if model.provider == .phonon {
+            return PhononStreamingProvider()
         }
         guard let cloudProvider = CloudProviderRegistry.provider(for: model.provider),
             let streamingProvider = cloudProvider.makeStreamingProvider(modelContext: modelContext)

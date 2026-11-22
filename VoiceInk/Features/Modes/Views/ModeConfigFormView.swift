@@ -35,6 +35,20 @@ struct ModeConfigFormView: View {
     private var selectedTranscriptionModel: (any TranscriptionModel)? {
         warmupSnapshot.transcriptionModel(named: effectiveModelName)
     }
+    private var isLFM3Selected: Bool {
+        selectedTranscriptionModel?.provider == .lfm3
+    }
+    private var lfm3CleanupSelection: Binding<LFM3POCStrategy> {
+        Binding(
+            get: { draft.lfm3CleanupPlan },
+            set: { newValue in
+                draft.lfm3CleanupPlan = newValue
+                if newValue != .baseline, draft.selectedPromptId == nil {
+                    draft.selectedPromptId = warmupSnapshot.firstPromptId
+                }
+            })
+    }
+
 
     private var selectedPrompt: CustomPrompt? {
         guard let selectedPromptId = draft.selectedPromptId else { return nil }
@@ -227,10 +241,26 @@ struct ModeConfigFormView: View {
                         draft.isRealtimeTranscriptionEnabled = TranscriptionRealtimeSupport.isAvailable(for: model)
                         draft.useCompatibleLanguage(for: model)
                     }
+                    applyOutputRules()
                 }
 
                 realtimeToggle
             }
+            if isLFM3Selected {
+                Picker("Context Cleanup", selection: lfm3CleanupSelection) {
+                    Text("Off").tag(LFM3POCStrategy.baseline)
+                    Text(LFM3POCStrategy.contextual.title).tag(LFM3POCStrategy.contextual)
+                    Text(LFM3POCStrategy.contextualReview.title).tag(LFM3POCStrategy.contextualReview)
+                }
+                if draft.lfm3CleanupPlan != .baseline {
+                    Text("Cleanup runs in LFM3 Omni while it transcribes. No separate AI provider is used.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    promptPicker
+                    contextAwarenessRow
+                }
+            }
+
 
             languagePicker
 
@@ -333,8 +363,10 @@ struct ModeConfigFormView: View {
         }
     }
 
+    @ViewBuilder
     private var aiEnhancementSection: some View {
-        Section("AI Enhancement") {
+        if !isLFM3Selected {
+            Section("AI Enhancement") {
             Toggle("AI Enhancement", isOn: $draft.isAIEnhancementEnabled)
                 .onChange(of: draft.isAIEnhancementEnabled) { _, newValue in
                     if newValue {
@@ -371,7 +403,6 @@ struct ModeConfigFormView: View {
 
             if draft.isAIEnhancementEnabled {
                 let providerOptions = aiProviderOptions
-
                 if providerOptions.isEmpty {
                     LabeledContent("AI Provider") {
                         Text("No providers connected")
@@ -416,8 +447,9 @@ struct ModeConfigFormView: View {
                         contextAwarenessRow
                     }
                 }
+                }
             }
-        }
+            }
     }
 
     @ViewBuilder
@@ -583,7 +615,8 @@ struct ModeConfigFormView: View {
     }
 
     private var canRespond: Bool {
-        draft.isAIEnhancementEnabled
+        !isLFM3Selected
+            && draft.isAIEnhancementEnabled
             && selectedPrompt != nil
             && configuredSelectedAIProvider != nil
             && configuredSelectedAIProvider != .voiceInkRefine

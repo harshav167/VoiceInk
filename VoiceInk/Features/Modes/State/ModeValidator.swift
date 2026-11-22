@@ -71,7 +71,8 @@ struct ModeValidator {
             errors.append(.missingTranscriptionModel)
         }
 
-        if config.isAIEnhancementEnabled,
+        if config.selectedTranscriptionModelName != "lfm3-omni-2b-mlx-8bit",
+            config.isAIEnhancementEnabled,
             let providerName = config.selectedAIProvider,
             let provider = AIProvider(rawValue: providerName),
             provider.supportsCustomModelID,

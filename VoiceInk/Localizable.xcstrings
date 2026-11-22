@@ -31110,6 +31110,490 @@
           }
         }
       }
+    },
+    "%@ download failed" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download von %@ fehlgeschlagen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Échec du téléchargement de %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 下载失败"
+          }
+        }
+      }
+    },
+    "%@ preparation failed" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vorbereitung von %@ fehlgeschlagen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Échec de la préparation de %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 准备失败"
+          }
+        }
+      }
+    },
+    "Both" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beide"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les deux"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "两者均可"
+          }
+        }
+      }
+    },
+    "Cannot delete %@ while a transcription is in progress." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ kann nicht gelöscht werden, während eine Transkription läuft."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible de supprimer %@ pendant qu’une transcription est en cours."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "转录进行时无法删除 %@。"
+          }
+        }
+      }
+    },
+    "Cannot delete LFM3 Omni while a transcription is in progress." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LFM3 Omni kann nicht gelöscht werden, während eine Transkription läuft."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impossible de supprimer LFM3 Omni pendant qu’une transcription est en cours."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "转录进行时无法删除 LFM3 Omni。"
+          }
+        }
+      }
+    },
+    "Cleanup runs in LFM3 Omni while it transcribes. No separate AI provider is used." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Bereinigung läuft während der Transkription direkt in LFM3 Omni. Es wird kein separater KI-Anbieter verwendet."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Le nettoyage s’exécute dans LFM3 Omni pendant la transcription. Aucun fournisseur d’IA distinct n’est utilisé."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "清理会在 LFM3 Omni 转录的同时进行，不使用其他 AI 提供商。"
+          }
+        }
+      }
+    },
+    "Context Cleanup" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kontextbereinigung"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nettoyage contextuel"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上下文清理"
+          }
+        }
+      }
+    },
+    "Delete Partial Download" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unvollständigen Download löschen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Supprimer le téléchargement partiel"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除未完成的下载"
+          }
+        }
+      }
+    },
+    "Failed to delete %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Löschen von %@ fehlgeschlagen"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Échec de la suppression de %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除 %@ 失败"
+          }
+        }
+      }
+    },
+    "Full review" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vollständige Prüfung"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Révision complète"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完整复核"
+          }
+        }
+      }
+    },
+    "Live cleanup" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Live-Bereinigung"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nettoyage en direct"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "实时清理"
+          }
+        }
+      }
+    },
+    "Live cleanup + full-audio review" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Live-Bereinigung + vollständige Audioprüfung"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nettoyage en direct + révision audio complète"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "实时清理 + 完整音频复核"
+          }
+        }
+      }
+    },
+    "Off" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aus"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Désactivé"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关闭"
+          }
+        }
+      }
+    },
+    "Preparation failed. Try again." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vorbereitung fehlgeschlagen. Versuche es erneut."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Échec de la préparation. Veuillez réessayer."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "准备失败，请重试。"
+          }
+        }
+      }
+    },
+    "Preparing" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wird vorbereitet"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Préparation"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "准备中"
+          }
+        }
+      }
+    },
+    "Preparing for the Neural Engine (about a minute, once)..." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wird für die Neural Engine vorbereitet (einmalig etwa eine Minute)…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Préparation pour le Neural Engine (environ une minute, une seule fois)…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在为神经网络引擎准备模型（仅首次需约一分钟）..."
+          }
+        }
+      }
+    },
+    "Recording Shortcut" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aufnahme-Kurzbefehl"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Raccourci d’enregistrement"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "录音快捷键"
+          }
+        }
+      }
+    },
+    "Return While Recording" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eingabetaste während der Aufnahme"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retour pendant l’enregistrement"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "录音时按 Return"
+          }
+        }
+      }
+    },
+    "Send On" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Senden bei"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Envoyer avec"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "触发发送方式"
+          }
+        }
+      }
+    },
+    "Transcription only" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nur Transkription"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Transcription uniquement"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "仅转录"
+          }
+        }
+      }
+    },
+    "Where Parakeet and Cohere Transcribe run. Automatic uses the CPU and Neural Engine for Parakeet, and adds the GPU for Cohere Transcribe, which is about 3x faster there. Takes effect on the next transcription; the first run after switching prepares the model for the new hardware. Phonon-2 always runs on the Neural Engine." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wo Parakeet und Cohere Transcribe ausgeführt werden. „Automatisch“ nutzt CPU und Neural Engine für Parakeet und zusätzlich die GPU für Cohere Transcribe, was dort etwa dreimal schneller ist. Wird bei der nächsten Transkription wirksam; beim ersten Durchlauf nach dem Wechsel wird das Modell für die neue Hardware vorbereitet. Phonon-2 läuft immer auf der Neural Engine."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Où s’exécutent Parakeet et Cohere Transcribe. Automatique utilise le CPU et le Neural Engine pour Parakeet, et ajoute le GPU pour Cohere Transcribe, qui y est environ 3 fois plus rapide. Prend effet à la prochaine transcription ; la première exécution après le changement prépare le modèle pour le nouveau matériel. Phonon-2 s’exécute toujours sur le Neural Engine."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "决定 Parakeet 和 Cohere Transcribe 的运行硬件。“自动”会为 Parakeet 使用 CPU 和神经网络引擎，并为 Cohere Transcribe 额外启用 GPU（速度大约快 3 倍）。更改会在下次转录时生效，切换后的首次运行会为新硬件准备模型。Phonon-2 始终在神经网络引擎上运行。"
+          }
+        }
+      }
+    },
+    "Which way of stopping the recording pastes the result and sends it: Return while recording, your recording shortcut (or the recorder stop button), or both." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Welche Art des Beendens der Aufnahme das Ergebnis einfügt und sendet: Eingabetaste während der Aufnahme, dein Aufnahme-Kurzbefehl (oder die Stopp-Taste im Rekorder) oder beide."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quelle manière d’arrêter l’enregistrement colle et envoie le résultat : Retour pendant l’enregistrement, votre raccourci d’enregistrement (ou le bouton d’arrêt de l’enregistreur), ou les deux."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "决定哪种停止录音的方式会粘贴结果并自动发送：录音时按 Return、使用录音快捷键（或录音面板停止按钮），或两者均可。"
+          }
+        }
+      }
     }
   },
   "version" : "1.1"

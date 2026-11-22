@@ -10,6 +10,8 @@ class TranscriptionModelManager: ObservableObject {
     private weak var whisperModelManager: WhisperModelManager?
     private weak var fluidAudioModelManager: FluidAudioModelManager?
     private let transcribeCppModelManager = TranscribeCppModelManager.shared
+    private let phononModelManager = PhononModelManager.shared
+    private let lfm3ModelManager = LFM3ModelManager.shared
 
     private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "TranscriptionModelManager")
 
@@ -27,6 +29,9 @@ class TranscriptionModelManager: ObservableObject {
         transcribeCppModelManager.onModelDeleted = { [weak self] modelName in
             self?.handleModelDeleted(modelName)
         }
+        phononModelManager.onModelDeleted = { [weak self] modelName in
+            self?.handleModelDeleted(modelName)
+        }
 
         // Wire up "models changed" callbacks so this manager rebuilds allAvailableModels.
         whisperModelManager.onModelsChanged = { [weak self] in
@@ -37,6 +42,16 @@ class TranscriptionModelManager: ObservableObject {
         }
         transcribeCppModelManager.onModelsChanged = { [weak self] in
             self?.refreshAllAvailableModels()
+        }
+        phononModelManager.onModelsChanged = { [weak self] in
+            self?.refreshAllAvailableModels()
+        }
+        lfm3ModelManager.onModelsChanged = { [weak self] in
+            guard let self else { return }
+            if !self.lfm3ModelManager.isDownloaded {
+                self.handleModelDeleted("lfm3-omni-2b-mlx-8bit")
+            }
+            self.refreshAllAvailableModels()
         }
 
     }
@@ -52,6 +67,10 @@ class TranscriptionModelManager: ObservableObject {
                 return fluidAudioModelManager?.isFluidAudioModelDownloaded(named: model.name) ?? false
             case .transcribeCpp:
                 return transcribeCppModelManager.isModelDownloaded(named: model.name)
+            case .phonon:
+                return phononModelManager.isModelDownloaded(named: model.name)
+            case .lfm3:
+                return lfm3ModelManager.isDownloaded
             case .nativeApple:
                 if #available(macOS 26, *) { return true } else { return false }
             case .custom:
@@ -110,7 +129,9 @@ class TranscriptionModelManager: ObservableObject {
             whisperModelManager?.loadedWhisperModel = nil
             whisperModelManager?.isModelLoaded = true
         }
-
+        if model.provider != .lfm3 {
+            Task { await LFM3OmniEngine.shared.unloadIfIdle() }
+        }
         NotificationCenter.default.post(name: .didChangeModel, object: nil, userInfo: ["modelName": model.name])
         NotificationCenter.default.post(name: .AppSettingsDidChange, object: nil)
     }
